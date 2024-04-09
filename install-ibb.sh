@@ -82,4 +82,25 @@ fi
 k3s kubectl create namespace $ARGOCD_NS --dry-run=client -o yaml | k3s kubectl apply -f -
 k3s kubectl apply -n argocd -f "$IBB_INSTALL_DIR/argocd-install.yaml" --wait=true
 
-# Install ArgoCD Manifests to turn this k8s cluter into an IBB
+# Port-forward ArgoCD for users to log in
+LOCAL_IP=$(ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
+ARGOCD_INITIAL_PW=$(k3s kubectl get secrets -n $ARGOCD_NS argocd-initial-admin-secret -o json | grep "password" | cut -d'"' -f4 | base64 -d)
+
+PORT_8080_PID=$(lsof -i tcp:8080 | awk 'NR!=1 {print $2}')
+if [ ! -z "${PORT_8080_PID}" ]
+then
+  echo "[****] Killing $PORT_8080_PID"
+  kill $PORT_8080_PID > /dev/null
+fi
+
+k3s kubectl port-forward --address=0.0.0.0 -n $ARGOCD_NS svc/argocd-server 8080:80 &
+
+echo "[****]"
+echo "[****]"
+echo "[****] INSTALLATION COMPLETE"
+echo "[****] ArgoCD Should be accessable at  https://$LOCAL_IP:8080"
+echo "[****]     Username: admin"
+echo "[****]     Password: $ARGOCD_INITIAL_PW"
+echo "[****]"
+echo "[****]"
+
