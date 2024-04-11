@@ -146,7 +146,6 @@ display_complete () {
 
 link_ibb_to_padi() {
     PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
-    PADI_INSTALL_CODE="ABCDEFG"
     log_debug ""
     log_debug ""
     log_debug "Please log into PADI and install a new IBB Instance using the following code"
