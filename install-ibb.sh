@@ -12,7 +12,7 @@ IBB_INSTALL_DIR="/opt/ibb"
 IBB_LOG_PATH="$IBB_INSTALL_DIR/logs"
 IBB_LOG_FILE="$IBB_LOG_PATH/install.log"
 IBB_DOWNLOAD_PATH="$IBB_INSTALL_DIR/downloads"
-REQUIRED_BINARIES="curl" # FORMAT: "curl wget vim otherbinary"
+REQUIRED_BINARIES="curl unzip" # FORMAT: "curl wget vim otherbinary"
 K3S_INSTALL_SCRIPT_FILENAME="ibb-install-k3s.sh"
 HELM_INSTALL_SCRIPT_FILENAME="ibb-install-helm.sh"
 ARGOCD_NS="argocd"
@@ -112,14 +112,19 @@ install_cns_dapr () {
     return 1
   fi
 
+  CNS_DAPR_DOWNLOAD_URL="https://github.com/CNSCP/cns-dapr/archive/refs/heads/master.zip"
+
   log_debug "Adding IBB Project Helm repository"
   helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
   log_debug "Updating Helm repositories"
   helm repo update > /dev/null
   log_debug "Installing redis"
   helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait
-  # Clone CNS Dapr
+  # Get CNS Dapr
+  curl -fsSLo $IBB_DOWNLOAD_PATH/cns-dapr.zip $CNS_DAPR_DOWNLOAD_URL
+  unzip $IBB_DOWNLOAD_PATH/cns-dapr.zip -d $IBB_DOWNLOAD_PATH
   # Install CNS Dapr
+  log_fail "TODO: Install and inform PADI that IBB is online"
   # Notify installation status 
 }
 
