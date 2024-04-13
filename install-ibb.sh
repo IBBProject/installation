@@ -220,8 +220,6 @@ port_forward_argocd () {
   k3s kubectl port-forward --address=0.0.0.0 -n $ARGOCD_NS svc/argocd-server $PORT:80 &
 }
 
-
-
 while [[ $# -gt 0 ]]; do
   case $1 in
     --uninstall)
