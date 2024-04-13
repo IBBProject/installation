@@ -5,9 +5,9 @@ set -o noglob
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
 ARGOCD_VERSION="latest"
+DAPR_VERSION=1.13
 
 # Set some Variables you probably will not need to change
-
 IBB_INSTALL_DIR="/opt/ibb"
 IBB_LOG_PATH="$IBB_INSTALL_DIR/logs"
 IBB_LOG_FILE="$IBB_LOG_PATH/install.log"
@@ -16,6 +16,7 @@ REQUIRED_BINARIES="curl" # FORMAT: "curl wget vim otherbinary"
 K3S_INSTALL_SCRIPT_FILENAME="ibb-install-k3s.sh"
 HELM_INSTALL_SCRIPT_FILENAME="ibb-install-helm.sh"
 ARGOCD_NS="argocd"
+DAPR_NS="dapr-system"
 PADI_ONBOARDING_URL="https://api.padi.io/onboarding"
 
 # Variables set inside functions that need a global scope
@@ -24,14 +25,14 @@ PADI_INSTALL_CODE=""
 
 # Set default installations
 INSTALL_ARGOCD=true
+INSTALL_DAPR=true
 INSTALL_HELM=true
 INSTALL_K3S=true
 LINK_TO_PADI=true
 PORT_FORWARD_ARGOCD=true
 
-
-# Check binaries exist on system
 check_required_binaries () {
+  # Check binaries exist on system
   for BINARY in $REQUIRED_BINARIES
   do
     log_debug "Checking for $BINARY"
@@ -42,8 +43,8 @@ check_required_binaries () {
   done
 }
 
-# Check that script is running as root
 check_root () {
+  # Check that script is running as root
   if [ "$EUID" -ne 0 ]
   then
     log_fail "Setup must be ran as root."
@@ -51,6 +52,7 @@ check_root () {
 }
 
 check_uninstall () {
+  # Uninstall IBB
   if [ "$UNINSTALL" = true ]; then
     log_debug "Uninstalling K3S"
     /usr/local/bin/k3s-uninstall.sh &>/dev/null
@@ -84,12 +86,13 @@ display_complete () {
   log_debug ""
 }
 
-# Install Argo. Requires helm
 install_argocd () {
+  # Install Argo. Requires helm
   if [ "$INSTALL_ARGOCD" != true ]; then 
     log_debug "Install argo flag is not true. Skipping..."
     return 1
   fi
+
   if [[ "$ARGOCD_VERSION" == "latest" ]]; then
     log_debug "Downloading ArgoCD Manifest"
     curl -fsSLo "$IBB_DOWNLOAD_PATH/argocd-install.yaml" https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
@@ -97,14 +100,28 @@ install_argocd () {
     log_fail "Versioning of Argo not yet implemented. Exiting."
   fi
 
-  log_debug "Installing ArgoCD. This may take a moment"
+  log_debug "Installing ArgoCD. This will take a moment"
   k3s kubectl create namespace $ARGOCD_NS --dry-run=client -o yaml | k3s kubectl apply -f - >> $IBB_LOG_FILE
   k3s kubectl apply -n $ARGOCD_NS -f "$IBB_DOWNLOAD_PATH/argocd-install.yaml" --wait=true >> $IBB_LOG_FILE
   sleep 10 # Hack needed for argocd-initial-admin-secret to register with the K8S Cluster
   ARGOCD_ADMIN_PW=$(k3s kubectl get secrets -n $ARGOCD_NS argocd-initial-admin-secret -o json | grep "password" | cut -d'"' -f4 | base64 -d)
 }
 
-# Install Helm
+install_dapr() {
+  if [ "$INSTALL_DAPR" != true ]; then 
+    log_debug "Install dapr flag is not true. Skipping..."
+    return 1
+  fi
+  DAPR_HELM_REPO="https://dapr.github.io/helm-charts"
+  log_debug "Adding Dapr Helm Repo"
+  helm repo add dapr "$DAPR_HELM_REPO" > /dev/null
+  log_debug "Updating Helm Repos"
+  helm repo update > /dev/null
+  log_debug "Installing dapr"
+  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait
+  log_debug "Finished installing dapr"
+}
+
 install_helm () {
   if [ "$INSTALL_HELM" != true ]; then 
     log_debug "Install helm flag is not true. Skipping helm installation..."
@@ -127,7 +144,6 @@ install_helm () {
   fi
 }
 
-# # Install K3S
 install_k3s () {
   if [ "$INSTALL_K3S" != true ]; then 
     log_debug "Install K3s flag is not true. Skipping K3S installation..."
@@ -148,6 +164,9 @@ install_k3s () {
     chmod +x "$K3S_INSTALL_FILE"
     INSTALL_K3S_VERSION=$K3S_VERSION $K3S_INSTALL_FILE | tee -a $IBB_LOG_FILE
   fi
+  mkdir -p $HOME/.kube
+  cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
+  chmod 600 $HOME/.kube/config
 }
 
 link_ibb_to_padi() {
@@ -157,7 +176,6 @@ link_ibb_to_padi() {
   fi
 
   PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
-  # PADI_INSTALL_CODE="ABCDEFG"
   log_debug ""
   log_debug ""
   log_debug "Please log into PADI and install a new IBB Instance using the following code"
@@ -200,9 +218,9 @@ log_fail () {
   exit 1
 }
 
-# Port-forward ArgoCD for users to log in
 port_forward_argocd () {
-  if [ "$PORT_FORWARD_ARGOCD" != true ]; then 
+  # Port-forward ArgoCD for users to log in
+  if [ "$INSTALL_ARGOCD" != true ]; then 
     log_debug "Port forwarding of ArgoCd is not true. Skipping."
     return 1
   fi
@@ -220,6 +238,7 @@ port_forward_argocd () {
   k3s kubectl port-forward --address=0.0.0.0 -n $ARGOCD_NS svc/argocd-server $PORT:80 &
 }
 
+# Start the script
 while [[ $# -gt 0 ]]; do
   case $1 in
     --uninstall)
@@ -231,13 +250,18 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-    -d|--install-dir)
-      IBB_INSTALL_DIR=$2
+    -d|--dapr)
+      INSTALL_DAPR=$2
       shift
       shift
       ;;
     -h|--helm)
       INSTALL_HELM=$2
+      shift
+      shift
+      ;;
+    --install-dir)
+      IBB_INSTALL_DIR=$2
       shift
       shift
       ;;
@@ -268,5 +292,6 @@ install_helm
 install_argocd
 port_forward_argocd
 link_ibb_to_padi
+install_dapr
 
 display_complete
