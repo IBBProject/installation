@@ -17,24 +17,24 @@ or if you live on the edge
 curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh | sudo bash
 ```
 
+## Flags
+
+`--install-dir` --> The location on disk you want to store IBB files. Default `/opt/ibb`
+`--no-argocd` --> Do not install Argo CD
+`--no-cns-dapr` --> Do not install CNS Dapr
+`--no-dapr` --> Do not install Dapr
+`--no-helm` --> Do not install helm
+`--no-k3s` --> Do not install K3S
+`--no-link-padi` --> Do not prompt to link IBB with Padi
+`--uninstall` --> Uninstall K3S and delete the IBB Directory
+
 # Custom Variables
 
 Insert these variables into your bash call between `sudo` and `./install-ibb.sh`:
 
 ```
-sudo ARGOCD_VERSION=1.14 K3S_VERSION=v1.24.1+k3s ./install-ibb.sh
+sudo ARGOCD_VERSION=1.14 K3S_VERSION=v1.24.1+k3s DAPR_VERSION=1.13 ./install-ibb.sh
 ```
 
-```
-ARGOCD_NS         --> The Kubernetes namespace in which to install ArgoCD into. Note: ArgoCD installer creates some resources that default to the `argocd` namespace and cannot be changed here.
-ARGOCD_VERSION    --> TODO: Install a specific version of ArgoCD onto the IBB Cluster
-K3S_VERSION       --> The version of K3S you wish to install. Must be a valid release [1]
-IBB_INSTALL_DIR   --> The directory where all the IBB installation files will be downloaded and saved
-REQUIRED_BINARIES --> A space-separated list of binary names that must be installed. The list is checked and fails if the specific binary is not found
-```
-
-Notes:
-
-[1]: See releases at https://github.com/k3s-io/k3s/releases
-
+See the top of install-ibb.sh for more variables
 

@@ -25,6 +25,7 @@ PADI_INSTALL_CODE=""
 
 # Set default installations
 INSTALL_ARGOCD=true
+INSTALL_CNS_DAPR=true
 INSTALL_DAPR=true
 INSTALL_HELM=true
 INSTALL_K3S=true
@@ -79,9 +80,6 @@ display_complete () {
   log_debug ""
   log_debug ""
   log_debug "INSTALLATION COMPLETE"
-  log_debug "ArgoCD Should be accessable at  https://$LOCAL_IP:8080"
-  log_debug "   Username: admin"
-  log_debug "   Password: $ARGOCD_ADMIN_PW"
   log_debug ""
   log_debug ""
 }
@@ -105,6 +103,24 @@ install_argocd () {
   k3s kubectl apply -n $ARGOCD_NS -f "$IBB_DOWNLOAD_PATH/argocd-install.yaml" --wait=true >> $IBB_LOG_FILE
   sleep 10 # Hack needed for argocd-initial-admin-secret to register with the K8S Cluster
   ARGOCD_ADMIN_PW=$(k3s kubectl get secrets -n $ARGOCD_NS argocd-initial-admin-secret -o json | grep "password" | cut -d'"' -f4 | base64 -d)
+}
+
+install_cns_dapr () {
+  # Install CNS Dapr and it's Redis dependency. Requires helm
+  if [ "$INSTALL_CNS_DAPR" != true ]; then 
+    log_debug "Install cns-dapr flag is not true. Skipping..."
+    return 1
+  fi
+
+  log_debug "Adding IBB Project Helm repository"
+  helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
+  log_debug "Updating Helm repositories"
+  helm repo update > /dev/null
+  log_debug "Installing redis"
+  helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait
+  # Clone CNS Dapr
+  # Install CNS Dapr
+  # Notify installation status 
 }
 
 install_dapr() {
@@ -203,7 +219,7 @@ link_ibb_to_padi() {
       RETRY_COUNT=$((RETRY_COUNT + 1))
       sleep "$SLEEP_TIME_SEC"
     fi
-    log_fail "Connection Time out. Please rerun this installer to try again"
+    # log_fail "Connection Time out. Please rerun this installer to try again"
   done
 }
 
@@ -241,38 +257,37 @@ port_forward_argocd () {
 # Start the script
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --uninstall)
-      UNINSTALL=true
-      shift
-      ;;
-    -a|--argocd)
-      INSTALL_ARGOCD=$2
-      shift
-      shift
-      ;;
-    -d|--dapr)
-      INSTALL_DAPR=$2
-      shift
-      shift
-      ;;
-    -h|--helm)
-      INSTALL_HELM=$2
-      shift
-      shift
-      ;;
     --install-dir)
       IBB_INSTALL_DIR=$2
       shift
       shift
       ;;
-    -k|--k3s)
-      INSTALL_K3S=$2
-      shift
+    --no-argocd)
+      INSTALL_ARGOCD=false
       shift
       ;;
-    -p|--padi)
-      LINK_TO_PADI=$2
+    --no-cns-dapr)
+      INSTALL_CNS_DAPR=false
       shift
+      ;;
+    --no-dapr)
+      INSTALL_DAPR=false
+      shift
+      ;;
+    --no-helm)
+      INSTALL_HELM=false
+      shift
+      ;;
+    --no-k3s)
+      INSTALL_K3S=false
+      shift
+      ;;
+    --no-link-padi)
+      LINK_TO_PADI=false
+      shift
+      ;;
+    --uninstall)
+      UNINSTALL=true
       shift
       ;;
     -*|--*)
@@ -293,5 +308,6 @@ install_argocd
 port_forward_argocd
 link_ibb_to_padi
 install_dapr
+install_cns_dapr
 
 display_complete
