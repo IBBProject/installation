@@ -12,11 +12,13 @@ IBB_INSTALL_DIR="/opt/ibb"
 IBB_LOG_PATH="$IBB_INSTALL_DIR/logs"
 IBB_LOG_FILE="$IBB_LOG_PATH/install.log"
 IBB_DOWNLOAD_PATH="$IBB_INSTALL_DIR/downloads"
-REQUIRED_BINARIES="curl unzip" # FORMAT: "curl wget vim otherbinary"
+REQUIRED_BINARIES="curl cut grep tr" # FORMAT: "curl wget vim otherbinary"
 K3S_INSTALL_SCRIPT_FILENAME="ibb-install-k3s.sh"
 HELM_INSTALL_SCRIPT_FILENAME="ibb-install-helm.sh"
 ARGOCD_NS="argocd"
 DAPR_NS="dapr-system"
+IBB_NS="ibb"
+IBB_AUTH_SECRET_NAME="ibb-authorization"
 PADI_ONBOARDING_URL="https://api.padi.io/onboarding"
 
 # Variables set inside functions that need a global scope
@@ -112,20 +114,30 @@ install_cns_dapr () {
     return 1
   fi
 
-  CNS_DAPR_DOWNLOAD_URL="https://github.com/CNSCP/cns-dapr/archive/refs/heads/master.zip"
-
   log_debug "Adding IBB Project Helm repository"
   helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
   log_debug "Updating Helm repositories"
   helm repo update > /dev/null
   log_debug "Installing redis"
   helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait
-  # Get CNS Dapr
-  curl -fsSLo $IBB_DOWNLOAD_PATH/cns-dapr.zip $CNS_DAPR_DOWNLOAD_URL
-  unzip $IBB_DOWNLOAD_PATH/cns-dapr.zip -d $IBB_DOWNLOAD_PATH
+
+  # Create IBB Authentication Secrets
+  k3s kubectl create namespace $IBB_NS --dry-run=client -o yaml | k3s kubectl apply -f - >> $IBB_LOG_FILE
+  if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then log_fail "Authentication Not found"; fi
+  PADI_ID=$(cat /opt/ibb/padi.json | grep -Po '"padiThing":"([a-zA-Z0-9]+)"' | cut -d ':' -f2 | tr -d '"')
+  PADI_TOKEN=$(cat /opt/ibb/padi.json | grep -Po '"padiToken":"[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+"' | cut -d ':' -f2 | tr -d '"')
+  if [ -z ${PADI_ID+x} ] || [ -z ${PADI_TOKEN+x} ]; then
+    log_fail "Padi ID or Token not set. Exiting"
+  fi
+  k3s kubectl create secret generic $IBB_AUTH_SECRET_NAME --namespace $IBB_NS --dry-run=client --from-literal=id=$PADI_ID --from-literal=token=$PADI_TOKEN -o yaml | k3s kubectl apply -f -
+
   # Install CNS Dapr
-  log_fail "TODO: Install and inform PADI that IBB is online"
+  log_debug "Installing CNS Dapr"
+  helm upgrade --install ibb-cns-dapr ibb/ibb-cns-dapr --namespace $IBB_NS --wait
+
+  log_debug "CNS Dapr Installed"
   # Notify installation status 
+  log_fail "TODO: Notify Padi IBB is installed"
 }
 
 install_dapr() {
@@ -197,6 +209,7 @@ link_ibb_to_padi() {
   fi
 
   PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
+  PADI_INSTALL_CODE="ABCDEFG"
   log_debug ""
   log_debug ""
   log_debug "Please log into PADI and install a new IBB Instance using the following code"
