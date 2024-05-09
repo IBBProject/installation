@@ -28,17 +28,19 @@ PADI_INSTALL_CODE=""
 # Set default installations
 INSTALL_ARGOCD=true
 INSTALL_CNS_DAPR=true
+INSTALL_CNS_KUBE=true
 INSTALL_DAPR=true
 INSTALL_HELM=true
 INSTALL_K3S=true
 LINK_TO_PADI=true
+NOTIFY_COMPLETE=true
 PORT_FORWARD_ARGOCD=true
 
 check_required_binaries () {
   # Check binaries exist on system
   for BINARY in $REQUIRED_BINARIES
   do
-    log_debug "Checking for $BINARY"
+    log_info "Checking for $BINARY"
     if !  command -v $BINARY &>/dev/null
     then
       log_fail "$BINARY not found. Exiting..."
@@ -57,9 +59,9 @@ check_root () {
 check_uninstall () {
   # Uninstall IBB
   if [ "$UNINSTALL" = true ]; then
-    log_debug "Uninstalling K3S"
+    log_info "Uninstalling K3S"
     /usr/local/bin/k3s-uninstall.sh &>/dev/null
-    log_debug "Deleting IBB Directory"
+    log_info "Deleting IBB Directory"
     rm -rf "$IBB_INSTALL_DIR"
     echo "[****] IBB has been Installed"
     exit 1
@@ -69,38 +71,38 @@ check_uninstall () {
 create_ibb_install_dir () {
   # Create IBB Install Directory
   if [ ! -d "$IBB_INSTALL_DIR" ]; then
-    mkdir -p "$IBB_LOG_PATH" # Log path must exist before we can log_debug
-    log_debug "Creating IBB directory $IBB_LOG_PATH"
-    log_debug "Creating IBB directory $IBB_DOWNLOAD_PATH"
+    mkdir -p "$IBB_LOG_PATH" # Log path must exist before we can log_info
+    log_info "Creating IBB directory $IBB_LOG_PATH"
+    log_info "Creating IBB directory $IBB_DOWNLOAD_PATH"
     mkdir -p "$IBB_DOWNLOAD_PATH"
   else
-    log_debug "IBB Directory already at $IBB_INSTALL_DIR"
+    log_info "IBB Directory already at $IBB_INSTALL_DIR"
   fi
 }
 
 display_complete () {
-  log_debug ""
-  log_debug ""
-  log_debug "INSTALLATION COMPLETE"
-  log_debug ""
-  log_debug ""
+  log_info ""
+  log_info ""
+  log_info "INSTALLATION COMPLETE"
+  log_info ""
+  log_info ""
 }
 
 install_argocd () {
   # Install Argo. Requires helm
   if [ "$INSTALL_ARGOCD" != true ]; then 
-    log_debug "Install argo flag is not true. Skipping..."
+    log_info "Install argo flag is not true. Skipping..."
     return 1
   fi
 
   if [[ "$ARGOCD_VERSION" == "latest" ]]; then
-    log_debug "Downloading ArgoCD Manifest"
+    log_info "Downloading ArgoCD Manifest"
     curl -fsSLo "$IBB_DOWNLOAD_PATH/argocd-install.yaml" https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   else
     log_fail "Versioning of Argo not yet implemented. Exiting."
   fi
 
-  log_debug "Installing ArgoCD. This will take a moment"
+  log_info "Installing ArgoCD. This will take a moment"
   k3s kubectl create namespace $ARGOCD_NS --dry-run=client -o yaml | k3s kubectl apply -f - >> $IBB_LOG_FILE
   k3s kubectl apply -n $ARGOCD_NS -f "$IBB_DOWNLOAD_PATH/argocd-install.yaml" --wait=true >> $IBB_LOG_FILE
   sleep 10 # Hack needed for argocd-initial-admin-secret to register with the K8S Cluster
@@ -110,61 +112,87 @@ install_argocd () {
 install_cns_dapr () {
   # Install CNS Dapr and it's Redis dependency. Requires helm
   if [ "$INSTALL_CNS_DAPR" != true ]; then 
-    log_debug "Install cns-dapr flag is not true. Skipping..."
+    log_info "Install cns-dapr flag is not true. Skipping..."
     return 1
   fi
 
-  log_debug "Adding IBB Project Helm repository"
+  log_info "Adding IBB Project Helm repository"
   helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
-  log_debug "Updating Helm repositories"
+  log_info "Updating Helm repositories"
   helm repo update > /dev/null
-  log_debug "Installing redis"
-  helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait
+  log_info "Installing redis"
+  helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait >> $IBB_LOG_FILE
 
   # Create IBB Authentication Secrets
   k3s kubectl create namespace $IBB_NS --dry-run=client -o yaml | k3s kubectl apply -f - >> $IBB_LOG_FILE
   if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then log_fail "Authentication Not found"; fi
   PADI_ID=$(cat /opt/ibb/padi.json | grep -Po '"padiThing":"([a-zA-Z0-9]+)"' | cut -d ':' -f2 | tr -d '"')
-  PADI_TOKEN=$(cat /opt/ibb/padi.json | grep -Po '"padiToken":"[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+"' | cut -d ':' -f2 | tr -d '"')
+  PADI_TOKEN=$(cat /opt/ibb/padi.json | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' | cut -d ':' -f2 | tr -d '"')
+  echo "TOKEN: $PADI_TOKEN"
   if [ -z ${PADI_ID+x} ] || [ -z ${PADI_TOKEN+x} ]; then
     log_fail "Padi ID or Token not set. Exiting"
   fi
-  k3s kubectl create secret generic $IBB_AUTH_SECRET_NAME --namespace $IBB_NS --dry-run=client --from-literal=id=$PADI_ID --from-literal=token=$PADI_TOKEN -o yaml | k3s kubectl apply -f -
+  k3s kubectl create secret generic $IBB_AUTH_SECRET_NAME --namespace $IBB_NS --dry-run=client --from-literal=id=$PADI_ID --from-literal=token=$PADI_TOKEN -o yaml | k3s kubectl apply -f - >> $IBB_LOG_FILE
 
   # Install CNS Dapr
-  log_debug "Installing CNS Dapr"
-  helm upgrade --install ibb-cns-dapr ibb/ibb-cns-dapr --namespace $IBB_NS --wait
+  log_info "Installing CNS Dapr"
+  helm upgrade --install ibb-cns-dapr ibb/ibb-cns-dapr --namespace $IBB_NS --wait >> $IBB_LOG_FILE
 
-  log_debug "CNS Dapr Installed"
-  # Notify installation status 
-  log_fail "TODO: Notify Padi IBB is installed"
+  log_info "CNS Dapr Installed"
+}
+
+install_cns_kube () {
+  # Install CNS Kube
+  if [ "$INSTALL_CNS_KUBE" != true ]; then 
+    log_info "Install cns-kube flag is not true. Skipping..."
+    return 1
+  fi
+
+  log_info "Adding IBB Project Helm repository"
+  helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
+  log_info "Updating Helm repositories"
+  helm repo update > /dev/null
+
+  # Verify that IBB Authentication Secret exists
+  k3s kubectl get secret --namespace $IBB_NS $IBB_AUTH_SECRET_NAME > /dev/null
+  SECRET_EXISTS=$?
+
+  if [ $SECRET_EXISTS -gt 0 ]; then
+    log_fail "CNS Kube Authentication Secret does not exist."
+  fi
+
+  # Install CNS Kube
+  log_info "Installing CNS Kube"
+  helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait >> $IBB_LOG_FILE
+
+  log_info "CNS Dapr Installed"
 }
 
 install_dapr() {
   if [ "$INSTALL_DAPR" != true ]; then 
-    log_debug "Install dapr flag is not true. Skipping..."
+    log_info "Install dapr flag is not true. Skipping..."
     return 1
   fi
   DAPR_HELM_REPO="https://dapr.github.io/helm-charts"
-  log_debug "Adding Dapr Helm Repo"
+  log_info "Adding Dapr Helm Repo"
   helm repo add dapr "$DAPR_HELM_REPO" > /dev/null
-  log_debug "Updating Helm Repos"
+  log_info "Updating Helm Repos"
   helm repo update > /dev/null
-  log_debug "Installing dapr"
-  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait
-  log_debug "Finished installing dapr"
+  log_info "Installing dapr"
+  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait >> $IBB_LOG_FILE
+  log_info "Finished installing dapr"
 }
 
 install_helm () {
   if [ "$INSTALL_HELM" != true ]; then 
-    log_debug "Install helm flag is not true. Skipping helm installation..."
+    log_info "Install helm flag is not true. Skipping helm installation..."
     return 1
   fi
   if command -v helm &>/dev/null
   then
-    log_debug "Found helm binary. No need to reinstall."
+    log_info "Found helm binary. No need to reinstall."
   else
-    log_debug "Installing helm..."
+    log_info "Installing helm..."
 
     HELM_INSTALL_SCRIPT="$IBB_DOWNLOAD_PATH/$HELM_INSTALL_SCRIPT_FILENAME"
     if [[ -f "$HELM_INSTALL_SCRIPT" ]]
@@ -179,15 +207,15 @@ install_helm () {
 
 install_k3s () {
   if [ "$INSTALL_K3S" != true ]; then 
-    log_debug "Install K3s flag is not true. Skipping K3S installation..."
+    log_info "Install K3s flag is not true. Skipping K3S installation..."
     return 1
   fi
 
   if command -v k3s &>/dev/null
   then
-    log_debug "Found k3s binary. No need to reinstall."
+    log_info "Found k3s binary. No need to reinstall."
   else
-    log_debug "Installing K3S Version $K3S_VERSION..."
+    log_info "Installing K3S Version $K3S_VERSION..."
     K3S_INSTALL_FILE="$IBB_DOWNLOAD_PATH/$K3S_INSTALL_SCRIPT_FILENAME"
     if [[ -f "$K3S_INSTALL_FILE" ]]
     then
@@ -204,46 +232,53 @@ install_k3s () {
 
 link_ibb_to_padi() {
   if [ "$LINK_TO_PADI" != true ]; then 
-    log_debug "Link to Padi flag is not true. Skipping..."
+    log_info "Link to Padi flag is not true. Skipping..."
     return 1
   fi
 
   PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
-  PADI_INSTALL_CODE="ABCDEFG"
-  log_debug ""
-  log_debug ""
-  log_debug "Please log into PADI and install a new IBB Instance using the following code"
-  log_debug "CODE: $PADI_INSTALL_CODE"
-  log_debug ""
-  log_debug ""
+  PADI_INSTALL_CODE="ADUSSB"
+  log_info ""
+  log_info ""
+  log_info "Please log into PADI and install a new IBB Instance using the following code"
+  log_info "CODE: $PADI_INSTALL_CODE"
+  log_info ""
+  log_info ""
 
-  MAX_RETRIES=5
-  SLEEP_TIME_SEC=3
+  MAX_RETRIES=6
+  SLEEP_TIME_SEC=10
 
   RETRY_COUNT=0
   while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]
   do
-    # HTTP 200 is success register, HTTP 403 is fail
     resp_code=$(curl --write-out '%{http_code}' --silent --output /dev/null -H 'content-type: application/json' $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE)
+    log_log "Attempt $RETRY_COUNT of $MAX_RETRIES to $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE was HTTP $resp_code"
 
+    # HTTP 200 is success register, HTTP 403 is fail
     if [ $resp_code -eq 200 ]
     then
       curl -fsSL -o $IBB_INSTALL_DIR/padi.json -H 'content-type: application/json' $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE
       chmod 400 $IBB_INSTALL_DIR/padi.json
-      log_debug "Successfully registered IBB Instance to Padi"
+      log_info "Successfully registered IBB Instance to Padi"
       return 1
     else
-      log_debug "Not yet registered. Sleeping."
+      log_info "Not yet registered. Sleeping."
       RETRY_COUNT=$((RETRY_COUNT + 1))
       sleep "$SLEEP_TIME_SEC"
     fi
-    # log_fail "Connection Time out. Please rerun this installer to try again"
   done
+  log_fail "Connection Time out. Please rerun this installer to try again"
 }
 
-log_debug () {
+log_info () {
   # [***] <TAB> 2024-12-31T23:59:59-0600 <TAB> ARG1 ARG2
   echo -e "[****]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" | tee -a $IBB_LOG_FILE
+}
+
+log_log () {
+  # [----] <TAB> 2024-12-31T23:59:59-0600 <TAB> ARG1 ARG2
+  # echo -e "[----]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" >> $IBB_LOG_FILE
+  echo -e "[----]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" | tee -a $IBB_LOG_FILE
 }
 
 log_fail () {
@@ -252,10 +287,21 @@ log_fail () {
   exit 1
 }
 
+notify_complete () {
+  if [ "$NOTIFY_COMPLETE" != true ]; then 
+    log_info "Notify Complete flag is not true. Skipping sending completion..."
+    return 1
+  fi
+
+  log_fail "TODO: Finish this"  
+  curl -X POST -H 'content-type: application/json' -H 'authorization: bearer ' -d '"online"' https://api.padi.io/thing/client/padi.node/status
+
+}
+
 port_forward_argocd () {
   # Port-forward ArgoCD for users to log in
   if [ "$INSTALL_ARGOCD" != true ]; then 
-    log_debug "Port forwarding of ArgoCd is not true. Skipping."
+    log_info "Port forwarding of ArgoCd is not true. Skipping."
     return 1
   fi
   LOCAL_IP=$(ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
@@ -288,6 +334,10 @@ while [[ $# -gt 0 ]]; do
       INSTALL_CNS_DAPR=false
       shift
       ;;
+    --no-cns-kube)
+      INSTALL_CNS_KUBE=false
+      shift
+      ;;
     --no-dapr)
       INSTALL_DAPR=false
       shift
@@ -298,6 +348,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-k3s)
       INSTALL_K3S=false
+      shift
+      ;;
+    --no-notify-complete)
+      NOTIFY_COMPLETE=false
       shift
       ;;
     --no-link-padi)
@@ -327,5 +381,7 @@ port_forward_argocd
 link_ibb_to_padi
 install_dapr
 install_cns_dapr
+install_cns_kube
 
+notify_complete
 display_complete
