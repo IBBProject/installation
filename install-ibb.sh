@@ -26,7 +26,7 @@ ARGOCD_ADMIN_PW=""
 PADI_INSTALL_CODE=""
 
 # Set default installations
-INSTALL_ARGOCD=true
+INSTALL_ARGOCD=false
 INSTALL_CNS_DAPR=true
 INSTALL_CNS_KUBE=true
 INSTALL_DAPR=true
@@ -44,6 +44,14 @@ check_required_binaries () {
     if !  command -v $BINARY &>/dev/null
     then
       log_fail "$BINARY not found. Exiting..."
+    fi
+    if [[ "$BINARY" -eq "grep" ]]; then
+      log_info "Checking grep version"
+      grep --version | grep "GNU grep" > /dev/null
+      GNU_GREP=$?
+      if [[ "$GNU_GREP" -gt 0 ]]; then
+        log_fail "GNU Grep is not installed. Please install and try again"
+      fi
     fi
   done
 }
@@ -121,14 +129,14 @@ install_cns_dapr () {
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Installing redis"
-  helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait >> $IBB_LOG_FILE
+  helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
 
   # Create IBB Authentication Secrets
   k3s kubectl create namespace $IBB_NS --dry-run=client -o yaml | k3s kubectl apply -f - >> $IBB_LOG_FILE
   if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then log_fail "Authentication Not found"; fi
   PADI_ID=$(cat /opt/ibb/padi.json | grep -Po '"padiThing":"([a-zA-Z0-9]+)"' | cut -d ':' -f2 | tr -d '"')
   PADI_TOKEN=$(cat /opt/ibb/padi.json | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' | cut -d ':' -f2 | tr -d '"')
-  echo "TOKEN: $PADI_TOKEN"
+  log_info "Padi Token ${PADI_TOKEN:0:8}"
   if [ -z ${PADI_ID+x} ] || [ -z ${PADI_TOKEN+x} ]; then
     log_fail "Padi ID or Token not set. Exiting"
   fi
@@ -136,7 +144,7 @@ install_cns_dapr () {
 
   # Install CNS Dapr
   log_info "Installing CNS Dapr"
-  helm upgrade --install ibb-cns-dapr ibb/ibb-cns-dapr --namespace $IBB_NS --wait >> $IBB_LOG_FILE
+  helm upgrade --install ibb-cns-dapr ibb/ibb-cns-dapr --namespace $IBB_NS --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
 
   log_info "CNS Dapr Installed"
 }
@@ -163,9 +171,9 @@ install_cns_kube () {
 
   # Install CNS Kube
   log_info "Installing CNS Kube"
-  helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait >> $IBB_LOG_FILE
+  helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
 
-  log_info "CNS Dapr Installed"
+  log_info "CNS Kube Installed"
 }
 
 install_dapr() {
@@ -179,7 +187,7 @@ install_dapr() {
   log_info "Updating Helm Repos"
   helm repo update > /dev/null
   log_info "Installing dapr"
-  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait >> $IBB_LOG_FILE
+  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
   log_info "Finished installing dapr"
 }
 
@@ -237,7 +245,6 @@ link_ibb_to_padi() {
   fi
 
   PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
-  PADI_INSTALL_CODE="ADUSSB"
   log_info ""
   log_info ""
   log_info "Please log into PADI and install a new IBB Instance using the following code"
@@ -292,10 +299,15 @@ notify_complete () {
     log_info "Notify Complete flag is not true. Skipping sending completion..."
     return 1
   fi
-
-  log_fail "TODO: Finish this"  
-  curl -X POST -H 'content-type: application/json' -H 'authorization: bearer ' -d '"online"' https://api.padi.io/thing/client/padi.node/status
-
+  log_info "Notifying Padi Installation is complete"
+  TKN=$(cat /opt/ibb/padi.json | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' | cut -d ':' -f2 | tr -d '"')
+  log_info "TOKEN ${TKN:0:8}"
+  curl -X POST \
+    -H 'content-type: application/json' \
+    -H "authorization: bearer $TKN" \
+    -d '"online"' \
+    https://api.padi.io/thing/client/padi.node/status
+  log_info "Notification Complete"
 }
 
 port_forward_argocd () {
@@ -376,12 +388,15 @@ check_required_binaries
 
 install_k3s
 install_helm
-install_argocd
-port_forward_argocd
+# install_argocd
+# port_forward_argocd
+
+# Link must be done before CNS-Dapr or CNS-Kube can be installed
 link_ibb_to_padi
 install_dapr
 install_cns_dapr
 install_cns_kube
 
 notify_complete
+
 display_complete
