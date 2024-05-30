@@ -8,5 +8,15 @@
 
 # ./install-ibb.sh --no-argocd --no-dapr --no-helm --no-k3s 
 
-# Test that cns-kube is installable
-./install-ibb.sh --no-argocd --no-dapr --no-helm --no-k3s  --no-link-padi --no-cns-kube
+# ./install-ibb.sh \
+#   --ktunnel-kubeconfig-secret-file $HOME/ktunnel-kubeconfig.yaml \
+#   --no-argocd \
+#   --no-cns-dapr \
+#   --no-cns-kube \
+#   --no-dapr \
+#   --no-helm \
+#   --no-k3s  \
+#   --no-link-padi
+
+./install-ibb.sh \
+  --ktunnel-kubeconfig-secret-file $HOME/ktunnel-kubeconfig.yaml
