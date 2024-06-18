@@ -17,6 +17,12 @@ or if you live on the edge
 curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh | sudo bash
 ```
 
+or if you need args:
+
+```
+curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh | sudo bash -s -- --argument-flag
+```
+
 ## Flags
 
 `--install-dir` --> The location on disk you want to store IBB files. Default `/opt/ibb`
