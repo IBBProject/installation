@@ -36,7 +36,7 @@ install_ktunnel () {
       | cut -d ":" -f2 \
       | tr -d '"' \
       | base64 -d \
-      | tee $KTUNNEL_KUBECONFIG_SECRET_MANIFEST
+      > $KTUNNEL_KUBECONFIG_SECRET_MANIFEST
   fi
 
 
