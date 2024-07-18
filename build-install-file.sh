@@ -24,6 +24,7 @@ set -o noglob
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+INSTALL_SCRIPT_VERSION="1.0.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -134,6 +135,8 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+echo "[****] Installation script version $INSTALL_SCRIPT_VERSION"
 
 check_root
 check_uninstall
