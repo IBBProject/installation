@@ -15,7 +15,7 @@ install_ktunnel () {
       log_fail "Could not find authorization file. Failing"
     fi
 
-    set +o glob
+    set +o noglob
 
     TKN=$( \
       cat "$IBB_INSTALL_DIR/padi.json" \
@@ -39,66 +39,6 @@ install_ktunnel () {
       | tr -d '"' \
       | base64 -d \
       > $KTUNNEL_KUBECONFIG_SECRET_MANIFEST
-  fi
-
-
-  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/ca.conf" ]; then
-    log_info "Writing ktunnel ca.conf"
-    cat << EOF > "$IBB_INSTALL_DIR/ktunnel/ca.conf"
-[req]
-req_extensions      = v3_req
-distinguished_name  = req_distinguished_name
-[ v3_req ]
-basicConstraints  = CA:TRUE
-keyUsage          = nonRepudiation, digitalSignature, keyEncipherment
-extendedKeyUsage  = serverAuth
-[req_distinguished_name]
-countryName                 = Country Name (2 letter code)
-countryName_default         = US
-stateOrProvinceName         = State or Province Name (full name)
-stateOrProvinceName_default = Colorado
-localityName                = Locality Name (eg, city)
-localityName_default        = Denver
-organizationName            = Organization Name (eg, company)
-organizationName_default    = IBB
-commonName                  = Common Name (eg, YOUR name)
-commonName_default          = ibb-ktunnel-sidecar-injector
-commonName_max              = 64
-emailAddress                = Email Address
-emailAddress_default        = admin@ibbproject.com
-EOF
-  fi
-
-  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/csr.conf" ]; then
-    log_info "Writing ktunnel csr.conf"
-    cat << EOF > "$IBB_INSTALL_DIR/ktunnel/csr.conf"
-[ req ]
-default_bits        = 2048
-default_keyfile     = sidecar-injector.key
-distinguished_name  = req_distinguished_name
-req_extensions      = req_ext # The extentions to add to the self signed cert
- 
-[ req_distinguished_name ]
-countryName                 = Country Name (2 letter code)
-countryName_default         = US
-stateOrProvinceName         = State or Province Name (full name)
-stateOrProvinceName_default = New York
-localityName                = Locality Name (eg, city)
-localityName_default        = NYC
-organizationName            = Organization Name (eg, company)
-organizationName_default    = IBB
-commonName                  = Common Name (eg, YOUR name)
-commonName_default          = ibb-ktunnel-sidecar-injector
-commonName_max              = 64
- 
-[ req_ext ]
-subjectAltName          = @alt_names
-
-[alt_names]
-DNS.1   = ibb-ktunnel-sidecar-injector
-DNS.2   = ibb-ktunnel-sidecar-injector.kube-system
-DNS.3   = ibb-ktunnel-sidecar-injector.kube-system.svc
-EOF
   fi
 
   # Generate OpenSSL Certificates needed
