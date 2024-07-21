@@ -15,6 +15,8 @@ install_ktunnel () {
       log_fail "Could not find authorization file. Failing"
     fi
 
+    set -o glob
+
     TKN=$( \
       cat "$IBB_INSTALL_DIR/padi.json" \
       | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' \
@@ -121,4 +123,6 @@ EOF
 
   log_info "Adding the KTunnel kubeconfig"
   k3s kubectl apply -f $KTUNNEL_KUBECONFIG_SECRET_MANIFEST | tee -a $IBB_LOG_FILE
+
+  set -o noglob
 }
