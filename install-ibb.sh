@@ -11,7 +11,7 @@ set -o noglob
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="1.0.2"
+INSTALL_SCRIPT_VERSION="1.0.3"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -270,7 +270,7 @@ install_ktunnel () {
       log_fail "Could not find authorization file. Failing"
     fi
 
-    set -o glob
+    set +o glob
 
     TKN=$( \
       cat "$IBB_INSTALL_DIR/padi.json" \
@@ -357,17 +357,34 @@ EOF
   fi
 
   # Generate OpenSSL Certificates needed
-  log_info "Generating ktunnel certificates and keys"
+  log_info "Generating ktunnel certificates and keys..."
   log_info "Creating ca.key"
   openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/ca.key 4096 | tee -a $IBB_LOG_FILE
+
   log_info "Creating ca.crt"
-  openssl req -x509 -config $IBB_INSTALL_DIR/ktunnel/ca.conf -new -nodes -key $IBB_INSTALL_DIR/ktunnel/ca.key -sha256 -days 999999 -out $IBB_INSTALL_DIR/ktunnel/ca.crt | tee -a $IBB_LOG_FILE
+  openssl req -x509 -new -nodes \
+          -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" \
+          -addext "subjectAltName = DNS:ibb-ktunnel-sidecar-injector,DNS:ibb-ktunnel-sidecar-injector.kube-system,DNS:ibb-ktunnel-sidecar-injector.kube-system.svc" \
+          -key $IBB_INSTALL_DIR/ktunnel/ca.key \
+          -sha256 -days 9999 \
+          -out $IBB_INSTALL_DIR/ktunnel/ca.crt | tee -a $IBB_LOG_FILE
+
   log_info "Creating sidecar-injector.key"
   openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key 2048 | tee -a $IBB_LOG_FILE
+
   log_info "Creating sidecar-injector.csr"
-  openssl req -new -key $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr -config $IBB_INSTALL_DIR/ktunnel/ca.conf | tee -a $IBB_LOG_FILE
+  openssl req -new -key $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key \
+          -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
+          -addext "subjectAltName = DNS:ibb-ktunnel-sidecar-injector,DNS:ibb-ktunnel-sidecar-injector.kube-system,DNS:ibb-ktunnel-sidecar-injector.kube-system.svc" \
+          -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" | tee -a $IBB_LOG_FILE
+
   log_info "Creating the certificate"
-  openssl x509 -req -in $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr -CA $IBB_INSTALL_DIR/ktunnel/ca.crt -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key -CAcreateserial -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt -days 999999 -sha256 -extensions req_ext -extfile $IBB_INSTALL_DIR/ktunnel/csr.conf | tee -a $IBB_LOG_FILE
+  openssl x509 -req -in $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
+          -CA $IBB_INSTALL_DIR/ktunnel/ca.crt -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key \
+          -CAcreateserial \
+          -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt \
+          -days 9999 -sha256 | tee -a $IBB_LOG_FILE
+
 
   log_info "Adding IBB Project Helm repository"
   helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
