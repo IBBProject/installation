@@ -10,7 +10,7 @@ THIS_SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && p
 INSTALL_FILENAME=install-ibb.sh
 
 # Wrapping 'EOF' in quotes negates variable expansion
-cat $THIS_SCRIPT_DIR/lib/header.sh > $INSTALL_FILENAME
+cat $THIS_SCRIPT_DIR/header.sh > $INSTALL_FILENAME
 
 # Cat all the lib/*.sh files into `install-ibb.sh`
 for f in $THIS_SCRIPT_DIR/lib/*.sh ; do
@@ -20,6 +20,6 @@ done
 
 
 # Wrapping 'EOF' in quotes negates variable expansion
-cat $THIS_SCRIPT_DIR/lib/footer.sh >> $INSTALL_FILENAME
+cat $THIS_SCRIPT_DIR/footer.sh >> $INSTALL_FILENAME
 
 echo "[*] Successfully created $INSTALL_FILENAME file."
