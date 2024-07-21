@@ -11,7 +11,7 @@ set -o noglob
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="1.0.4"
+INSTALL_SCRIPT_VERSION="1.0.5"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -296,6 +296,38 @@ install_ktunnel () {
       > $KTUNNEL_KUBECONFIG_SECRET_MANIFEST
   fi
 
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/csr.conf" ]; then
+    log_info "Writing ktunnel csr.conf"
+    cat << EOF > "$IBB_INSTALL_DIR/ktunnel/csr.conf"
+[ req ]
+default_bits        = 2048
+default_keyfile     = sidecar-injector.key
+distinguished_name  = req_distinguished_name
+req_extensions      = req_ext # The extentions to add to the self signed cert
+ 
+[ req_distinguished_name ]
+countryName                 = Country Name (2 letter code)
+countryName_default         = US
+stateOrProvinceName         = State or Province Name (full name)
+stateOrProvinceName_default = NC
+localityName                = Locality Name (eg, city)
+localityName_default        = Ashville
+organizationName            = Organization Name (eg, company)
+organizationName_default    = IBB
+commonName                  = Common Name (eg, YOUR name)
+commonName_default          = ibb-ktunnel-sidecar-injector
+commonName_max              = 64
+ 
+[ req_ext ]
+subjectAltName          = @alt_names
+
+[alt_names]
+DNS.1   = ibb-ktunnel-sidecar-injector
+DNS.2   = ibb-ktunnel-sidecar-injector.kube-system
+DNS.3   = ibb-ktunnel-sidecar-injector.kube-system.svc
+EOF
+  fi
+
   # Generate OpenSSL Certificates needed
   log_info "Generating ktunnel certificates and keys..."
   log_info "Creating ca.key"
@@ -304,7 +336,7 @@ install_ktunnel () {
   log_info "Creating ca.crt"
   openssl req -x509 -new -nodes \
           -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" \
-          -addext "subjectAltName = DNS:ibb-ktunnel-sidecar-injector,DNS:ibb-ktunnel-sidecar-injector.kube-system,DNS:ibb-ktunnel-sidecar-injector.kube-system.svc" \
+          -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
           -key $IBB_INSTALL_DIR/ktunnel/ca.key \
           -sha256 -days 9999 \
           -out $IBB_INSTALL_DIR/ktunnel/ca.crt | tee -a $IBB_LOG_FILE
@@ -315,14 +347,17 @@ install_ktunnel () {
   log_info "Creating sidecar-injector.csr"
   openssl req -new -key $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key \
           -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
-          -addext "subjectAltName = DNS:ibb-ktunnel-sidecar-injector,DNS:ibb-ktunnel-sidecar-injector.kube-system,DNS:ibb-ktunnel-sidecar-injector.kube-system.svc" \
+          -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
           -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" | tee -a $IBB_LOG_FILE
 
   log_info "Creating the certificate"
   openssl x509 -req -in $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
-          -CA $IBB_INSTALL_DIR/ktunnel/ca.crt -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key \
+          -CA $IBB_INSTALL_DIR/ktunnel/ca.crt \
+          -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key \
           -CAcreateserial \
           -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt \
+          -extensions req_ext \
+          -extfile $IBB_INSTALL_DIR/ktunnel/csr.conf \
           -days 9999 -sha256 | tee -a $IBB_LOG_FILE
 
 
