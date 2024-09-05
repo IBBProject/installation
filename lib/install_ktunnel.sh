@@ -75,35 +75,47 @@ EOF
 
   # Generate OpenSSL Certificates needed
   log_info "Generating ktunnel certificates and keys..."
-  log_info "Creating ca.key"
-  openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/ca.key 4096 | tee -a $IBB_LOG_FILE
 
-  log_info "Creating ca.crt"
-  openssl req -x509 -new -nodes \
-          -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" \
-          -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
-          -key $IBB_INSTALL_DIR/ktunnel/ca.key \
-          -sha256 -days 9999 \
-          -out $IBB_INSTALL_DIR/ktunnel/ca.crt | tee -a $IBB_LOG_FILE
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/ca.key" ]; then
+    log_info "Creating ca.key"
+    openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/ca.key 4096 | tee -a $IBB_LOG_FILE
+  fi
 
-  log_info "Creating sidecar-injector.key"
-  openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key 2048 | tee -a $IBB_LOG_FILE
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/ca.crt" ]; then
+    log_info "Creating ca.crt"
+    openssl req -x509 -new -nodes \
+            -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" \
+            -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
+            -key $IBB_INSTALL_DIR/ktunnel/ca.key \
+            -sha256 -days 9999 \
+            -out $IBB_INSTALL_DIR/ktunnel/ca.crt | tee -a $IBB_LOG_FILE
+  fi
 
-  log_info "Creating sidecar-injector.csr"
-  openssl req -new -key $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key \
-          -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
-          -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
-          -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" | tee -a $IBB_LOG_FILE
 
-  log_info "Creating the certificate"
-  openssl x509 -req -in $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
-          -CA $IBB_INSTALL_DIR/ktunnel/ca.crt \
-          -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key \
-          -CAcreateserial \
-          -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt \
-          -extensions req_ext \
-          -extfile $IBB_INSTALL_DIR/ktunnel/csr.conf \
-          -days 9999 -sha256 | tee -a $IBB_LOG_FILE
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key" ]; then
+    log_info "Creating sidecar-injector.key"
+    openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key 2048 | tee -a $IBB_LOG_FILE
+  fi
+
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr" ]; then
+    log_info "Creating sidecar-injector.csr"
+    openssl req -new -key $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key \
+            -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
+            -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
+            -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" | tee -a $IBB_LOG_FILE
+  fi
+
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt" ]; then
+    log_info "Creating the certificate"
+    openssl x509 -req -in $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
+            -CA $IBB_INSTALL_DIR/ktunnel/ca.crt \
+            -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key \
+            -CAcreateserial \
+            -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt \
+            -extensions req_ext \
+            -extfile $IBB_INSTALL_DIR/ktunnel/csr.conf \
+            -days 9999 -sha256 | tee -a $IBB_LOG_FILE
+  fi
 
 
   log_info "Adding IBB Project Helm repository"

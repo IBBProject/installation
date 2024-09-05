@@ -9,17 +9,18 @@ link_ibb_to_padi() {
     return 0
   fi
 
-  PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
+  if [ -z "$PADI_INSTALL_CODE" ]; then
+    PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
+  fi
   log_info ""
   log_info ""
-  log_info "Please log into PADI and install a new IBB Instance using the following code"
+  log_info "Please log into IBB Zone and install a new IBB Instance using the following code"
   log_info "CODE: $PADI_INSTALL_CODE"
   log_info ""
+  read -sen 1 -p "$(log_info 'When complete, press any key to continue...')"
   log_info ""
 
   MAX_RETRIES=6
-  SLEEP_TIME_SEC=10
-
   RETRY_COUNT=0
   while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]
   do
@@ -34,10 +35,9 @@ link_ibb_to_padi() {
       log_info "Successfully registered IBB Instance to Padi"
       return 0
     else
-      log_info "Not yet registered. Sleeping."
+      read -s -e -n 1 -p "$(log_info 'Oops something is not quite right. Please press any key to try again...')"
       RETRY_COUNT=$((RETRY_COUNT + 1))
-      sleep "$SLEEP_TIME_SEC"
     fi
   done
-  log_fail "Connection Time out. Please rerun this installer to try again"
+  log_fail "Too many failed attempts. Please rerun this installer to try again"
 }
