@@ -330,35 +330,47 @@ EOF
 
   # Generate OpenSSL Certificates needed
   log_info "Generating ktunnel certificates and keys..."
-  log_info "Creating ca.key"
-  openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/ca.key 4096 | tee -a $IBB_LOG_FILE
 
-  log_info "Creating ca.crt"
-  openssl req -x509 -new -nodes \
-          -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" \
-          -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
-          -key $IBB_INSTALL_DIR/ktunnel/ca.key \
-          -sha256 -days 9999 \
-          -out $IBB_INSTALL_DIR/ktunnel/ca.crt | tee -a $IBB_LOG_FILE
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/ca.key" ]; then
+    log_info "Creating ca.key"
+    openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/ca.key 4096 | tee -a $IBB_LOG_FILE
+  fi
 
-  log_info "Creating sidecar-injector.key"
-  openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key 2048 | tee -a $IBB_LOG_FILE
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/ca.crt" ]; then
+    log_info "Creating ca.crt"
+    openssl req -x509 -new -nodes \
+            -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" \
+            -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
+            -key $IBB_INSTALL_DIR/ktunnel/ca.key \
+            -sha256 -days 9999 \
+            -out $IBB_INSTALL_DIR/ktunnel/ca.crt | tee -a $IBB_LOG_FILE
+  fi
 
-  log_info "Creating sidecar-injector.csr"
-  openssl req -new -key $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key \
-          -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
-          -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
-          -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" | tee -a $IBB_LOG_FILE
 
-  log_info "Creating the certificate"
-  openssl x509 -req -in $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
-          -CA $IBB_INSTALL_DIR/ktunnel/ca.crt \
-          -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key \
-          -CAcreateserial \
-          -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt \
-          -extensions req_ext \
-          -extfile $IBB_INSTALL_DIR/ktunnel/csr.conf \
-          -days 9999 -sha256 | tee -a $IBB_LOG_FILE
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key" ]; then
+    log_info "Creating sidecar-injector.key"
+    openssl genrsa -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key 2048 | tee -a $IBB_LOG_FILE
+  fi
+
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr" ]; then
+    log_info "Creating sidecar-injector.csr"
+    openssl req -new -key $IBB_INSTALL_DIR/ktunnel/sidecar-injector.key \
+            -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
+            -config "$IBB_INSTALL_DIR/ktunnel/csr.conf" \
+            -subj "/C=US/ST=NC/O=IBB/CN=ibb-ktunnel-sidecar-injector" | tee -a $IBB_LOG_FILE
+  fi
+
+  if [ ! -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt" ]; then
+    log_info "Creating the certificate"
+    openssl x509 -req -in $IBB_INSTALL_DIR/ktunnel/sidecar-injector.csr \
+            -CA $IBB_INSTALL_DIR/ktunnel/ca.crt \
+            -CAkey $IBB_INSTALL_DIR/ktunnel/ca.key \
+            -CAcreateserial \
+            -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt \
+            -extensions req_ext \
+            -extfile $IBB_INSTALL_DIR/ktunnel/csr.conf \
+            -days 9999 -sha256 | tee -a $IBB_LOG_FILE
+  fi
 
 
   log_info "Adding IBB Project Helm repository"
@@ -385,17 +397,18 @@ link_ibb_to_padi() {
     return 0
   fi
 
-  PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
+  if [ -z "$PADI_INSTALL_CODE" ]; then
+    PADI_INSTALL_CODE=$(tr -dc A-Z0-9 </dev/urandom | head -c 6; echo)
+  fi
   log_info ""
   log_info ""
-  log_info "Please log into PADI and install a new IBB Instance using the following code"
+  log_info "Please log into IBB Zone and install a new IBB Instance using the following code"
   log_info "CODE: $PADI_INSTALL_CODE"
   log_info ""
+  read -sen 1 -p "$(log_info 'When complete, press any key to continue...')"
   log_info ""
 
   MAX_RETRIES=6
-  SLEEP_TIME_SEC=10
-
   RETRY_COUNT=0
   while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]
   do
@@ -410,12 +423,11 @@ link_ibb_to_padi() {
       log_info "Successfully registered IBB Instance to Padi"
       return 0
     else
-      log_info "Not yet registered. Sleeping."
+      read -s -e -n 1 -p "$(log_info 'Oops something is not quite right. Please press any key to try again...')"
       RETRY_COUNT=$((RETRY_COUNT + 1))
-      sleep "$SLEEP_TIME_SEC"
     fi
   done
-  log_fail "Connection Time out. Please rerun this installer to try again"
+  log_fail "Too many failed attempts. Please rerun this installer to try again"
 }
 
 log_err () {
@@ -430,7 +442,7 @@ log_info () {
 
 log_log () {
   # [----] <TAB> 2024-12-31T23:59:59-0600 <TAB> ARG1 ARG2
-  echo -e "[----]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" | tee -a $IBB_LOG_FILE
+  echo -e "[----]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" >> $IBB_LOG_FILE
 }
 
 log_fail () {
@@ -480,6 +492,11 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --install-dir)
       IBB_INSTALL_DIR=$2
+      shift
+      shift
+      ;;
+    --install-code)
+      PADI_INSTALL_CODE=$2
       shift
       shift
       ;;

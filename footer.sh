@@ -6,6 +6,11 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --install-code)
+      PADI_INSTALL_CODE=$2
+      shift
+      shift
+      ;;
     --ktunnel-kubeconfig-secret-file)
       KTUNNEL_KUBECONFIG_SECRET_MANIFEST=$2
       shift
