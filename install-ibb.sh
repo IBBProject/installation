@@ -11,7 +11,7 @@ set -o noglob
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="1.1.0"
+INSTALL_SCRIPT_VERSION="1.2.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -402,7 +402,9 @@ link_ibb_to_padi() {
   fi
   log_info ""
   log_info ""
-  log_info "Please log into IBB Zone and install a new IBB Instance using the following code"
+  log_info "Please log into IBB Zone and install a new IBB Instance using the following code."
+  log_info "For step-by-step instructions visit https://ibbproject.github.io/installation/#connect"
+  log_info "" 
   log_info "CODE: $PADI_INSTALL_CODE"
   log_info ""
   read -sen 1 -p "$(log_info 'When complete, press any key to continue...')"
