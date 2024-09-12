@@ -14,7 +14,9 @@ link_ibb_to_padi() {
   fi
   log_info ""
   log_info ""
-  log_info "Please log into IBB Zone and install a new IBB Instance using the following code"
+  log_info "Please log into IBB Zone and install a new IBB Instance using the following code."
+  log_info "For step-by-step instructions visit https://ibbproject.github.io/installation/#connect"
+  log_info "" 
   log_info "CODE: $PADI_INSTALL_CODE"
   log_info ""
   read -sen 1 -p "$(log_info 'When complete, press any key to continue...')"
