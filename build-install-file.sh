@@ -13,7 +13,7 @@ INSTALL_FILENAME=install-ibb.sh
 cat $THIS_SCRIPT_DIR/header.sh > $INSTALL_FILENAME
 
 # Cat all the lib/*.sh files into `install-ibb.sh`
-for f in $THIS_SCRIPT_DIR/lib/*.sh ; do
+for f in $THIS_SCRIPT_DIR/lib/install/*.sh ; do
   cat $f >> $INSTALL_FILENAME
   echo "" >> $INSTALL_FILENAME
 done
