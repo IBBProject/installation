@@ -1,7 +1,7 @@
 install_k3s () {
   if [ "$INSTALL_K3S" != true ]; then 
     log_info "Install K3s flag is not true. Skipping K3S installation..."
-    return 1
+    return 0
   fi
 
   if command -v k3s &>/dev/null

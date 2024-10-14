@@ -31,6 +31,7 @@ install_ktunnel () {
 
     # Make CURL request to Padi to get manifest file
     curl --request GET \
+      --silent \
       --url $PADI_ONBOARDING_CONFIG_URL \
       --header "Authorization: Bearer $TKN" \
       --header "content-type: application/json" \
@@ -114,7 +115,7 @@ EOF
             -out $IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt \
             -extensions req_ext \
             -extfile $IBB_INSTALL_DIR/ktunnel/csr.conf \
-            -days 9999 -sha256 | tee -a $IBB_LOG_FILE
+            -days 9999 -sha256 >> $IBB_LOG_FILE 2>&1
   fi
 
 
@@ -126,7 +127,7 @@ EOF
   helm upgrade --install ibb-ktunnel-inejctor ibb/ibb-ktunnel-injector --namespace kube-system --set-file caCrt=$IBB_INSTALL_DIR/ktunnel/ca.crt,sidecarInjectorCrt=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt,sidecarInjectorKey=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
 
   log_info "Adding the KTunnel kubeconfig"
-  k3s kubectl apply -f $KTUNNEL_KUBECONFIG_SECRET_MANIFEST | tee -a $IBB_LOG_FILE
+  k3s kubectl apply -f $KTUNNEL_KUBECONFIG_SECRET_MANIFEST >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
 
   set -o noglob
 }

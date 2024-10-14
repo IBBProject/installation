@@ -52,6 +52,14 @@ while [[ $# -gt 0 ]]; do
       INSTALL_KTUNNEL=false
       shift
       ;;
+    --no-install-k8s-dashboard)
+      INSTALL_K8S_DASHBOARD=false
+      shift
+      ;;
+    --no-install-promstack)
+      INSTALL_PROMSTACK=false
+      shift
+      ;;
     --uninstall)
       UNINSTALL=true
       shift
@@ -65,11 +73,13 @@ done
 
 echo "[****] Installation script version $INSTALL_SCRIPT_VERSION"
 
+# Check the system is compatable
 check_root
 check_uninstall
 create_ibb_install_dir
 check_required_binaries
 
+# Install the "IBB" software - Kubernetes and Helm
 install_k3s
 install_helm
 
@@ -81,5 +91,9 @@ install_dapr
 install_cns_dapr
 install_cns_kube
 notify_complete
+
+install_argocd
+install_kubernetes_dashboard
+install_promstack
 
 display_complete

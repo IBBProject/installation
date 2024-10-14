@@ -1,7 +1,7 @@
 notify_complete () {
   if [ "$NOTIFY_COMPLETE" != true ]; then 
     log_info "Notify Complete flag is not true. Skipping sending completion..."
-    return 1
+    return 0
   fi
   log_info "Notifying Padi Installation is complete"
   TKN=$(cat /opt/ibb/padi.json | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' | cut -d ':' -f2 | tr -d '"')

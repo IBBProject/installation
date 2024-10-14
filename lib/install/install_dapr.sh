@@ -1,7 +1,7 @@
 install_dapr() {
   if [ "$INSTALL_DAPR" != true ]; then 
     log_info "Install dapr flag is not true. Skipping..."
-    return 1
+    return 0
   fi
   DAPR_HELM_REPO="https://dapr.github.io/helm-charts"
   log_info "Adding Dapr Helm Repo"

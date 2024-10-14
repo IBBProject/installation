@@ -2,7 +2,7 @@ install_cns_dapr () {
   # Install CNS Dapr and it's Redis dependency. Requires helm
   if [ "$INSTALL_CNS_DAPR" != true ]; then 
     log_info "Install cns-dapr flag is not true. Skipping..."
-    return 1
+    return 0
   fi
 
   log_info "Adding IBB Project Helm repository"

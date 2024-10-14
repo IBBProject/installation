@@ -2,7 +2,7 @@ port_forward_argocd () {
   # Port-forward ArgoCD for users to log in
   if [ "$INSTALL_ARGOCD" != true ]; then 
     log_info "Port forwarding of ArgoCd is not true. Skipping."
-    return 1
+    return 0
   fi
   LOCAL_IP=$(ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
   PORT=8080
