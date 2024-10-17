@@ -2,7 +2,7 @@ install_cns_kube () {
   # Install CNS Kube
   if [ "$INSTALL_CNS_KUBE" != true ]; then 
     log_info "Install cns-kube flag is not true. Skipping..."
-    return 1
+    return 0
   fi
 
   log_info "Adding IBB Project Helm repository"

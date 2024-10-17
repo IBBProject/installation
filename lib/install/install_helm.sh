@@ -1,7 +1,7 @@
 install_helm () {
   if [ "$INSTALL_HELM" != true ]; then 
     log_info "Install helm flag is not true. Skipping helm installation..."
-    return 1
+    return 0
   fi
   if command -v helm &>/dev/null
   then

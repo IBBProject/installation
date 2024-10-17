@@ -1,7 +1,7 @@
 link_ibb_to_padi() {
   if [ "$LINK_TO_PADI" != true ]; then 
     log_info "Link to Padi flag is not true. Skipping..."
-    return 1
+    return 0
   fi
 
   if [ -f "$IBB_INSTALL_DIR/padi.json" ]; then
