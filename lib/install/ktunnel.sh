@@ -1,9 +1,23 @@
-install_ktunnel () {
+do_ktunnel() {
   if [ "$INSTALL_KTUNNEL" != true ]; then
     log_info "Install KTunnel flag is not true. Skipping KTunnel installation..."
     return 0
   fi
+ 
+   if [ "$DO_UPDATE" == true ]; then
+    log_info "Updating KTunnel..."
+    update_ktunnel
+    log_info "Done."
+    return 0
+  fi
 
+  # If we make it this far, we should install KTunnel
+  log_info "Installing KTunnel..."
+  install_ktunnel
+  log_info "Done."
+}
+
+install_ktunnel () {
   if [ ! -d "$IBB_KTUNNEL_PATH" ]; then
     mkdir "$IBB_KTUNNEL_PATH"
   fi
@@ -119,15 +133,31 @@ EOF
   fi
 
 
-  log_info "Adding IBB Project Helm repository"
-  helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
-  log_info "Updating Helm repositories"
-  helm repo update > /dev/null
-  log_info "Installing ktunnel sidecar injector"
-  helm upgrade --install ibb-ktunnel-inejctor ibb/ibb-ktunnel-injector --namespace kube-system --set-file caCrt=$IBB_INSTALL_DIR/ktunnel/ca.crt,sidecarInjectorCrt=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt,sidecarInjectorKey=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  update_ktunnel
 
   log_info "Adding the KTunnel kubeconfig"
   k3s kubectl apply -f $KTUNNEL_KUBECONFIG_SECRET_MANIFEST >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
 
   set -o noglob
+}
+
+
+update_ktunnel () {
+  # Check that required files are present
+  if ! [[ -f "$IBB_INSTALL_DIR/ktunnel/ca.crt" 
+    && -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt" 
+    && -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key" 
+  ]];
+  then
+    log_fail "Ktunnel Update Failed. Required files not present. Please run the install script to generate required files"
+    exit 1
+  fi
+
+  log_info "Updating Helm repositories"
+  helm repo update > /dev/null
+  log_info "Updating ktunnel sidecar injector"
+  helm upgrade --install ibb-ktunnel-inejctor ibb/ibb-ktunnel-injector --namespace kube-system --set-file caCrt=$IBB_INSTALL_DIR/ktunnel/ca.crt,sidecarInjectorCrt=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt,sidecarInjectorKey=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  
+  KTUNNEL_VERSION=$(helm search repo ibb/ibb-ktunnel-injector | tail -n 1 | cut -f2)
+  log_info "Success. ibb/ibb-ktunnel-injector is now on version $KTUNNEL_VERSION"
 }
