@@ -64,6 +64,14 @@ while [[ $# -gt 0 ]]; do
       UNINSTALL=true
       shift
       ;;
+    --update)
+      DO_UPDATE=true
+      shift
+      ;;
+    --upgrade)
+      DO_UPGRADE=true
+      shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -80,12 +88,12 @@ create_ibb_install_dir
 check_required_binaries
 
 # Install the "IBB" software - Kubernetes and Helm
-install_k3s
-install_helm
+do_k3s
+do_helm
 
 # Link must be done before KTunnel, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
-install_ktunnel
+do_ktunnel
 install_dapr
 
 install_cns_dapr

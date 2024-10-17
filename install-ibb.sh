@@ -53,6 +53,8 @@ KUBERNETES_DASHBOARD_BEARER_TOKEN=""
 KTUNNEL_INJECTOR_REQUEST="ibb-ktunnel"
 
 # Set default installations
+DO_UPDATE=false
+DO_UPGRADE=false
 INSTALL_ARGOCD=false
 INSTALL_CNS_DAPR=true
 INSTALL_CNS_KUBE=true
@@ -97,11 +99,11 @@ check_uninstall () {
   # Uninstall IBB
   if [ "$UNINSTALL" = true ]; then
     log_info "Uninstalling K3S"
-    /usr/local/bin/k3s-uninstall.sh &>/dev/null
+    /usr/local/bin/k3s-uninstall.sh || true
     log_info "Deleting IBB Directory"
-    rm -rf "$IBB_INSTALL_DIR"
-    echo "[****] IBB has been Installed"
-    exit 1
+    rm -rvf "$IBB_INSTALL_DIR" || true
+    echo "[****] IBB has been Uninstalled"
+    exit 0
   fi
 }
 
@@ -123,6 +125,40 @@ display_complete () {
   log_info "INSTALLATION COMPLETE"
   log_info ""
   log_info ""
+}
+
+do_helm() {
+  if [ "$INSTALL_HELM" != true ]; then 
+    log_info "Install helm flag is not true. Skipping helm installation..."
+    return 0
+  fi
+
+  if [ "$DO_UPGRADE" == true ]; then
+    log_info "Upgrading Helm..."
+    install_helm
+    log_info "Done."
+    return 0
+  fi
+
+  if command -v helm &>/dev/null
+  then
+    log_info "Found helm binary. No need to reinstall."
+  else
+    log_info "Installing helm..."
+    install_helm
+    log_info "Done."
+  fi
+}
+
+install_helm () {
+  HELM_INSTALL_SCRIPT="$IBB_DOWNLOAD_PATH/$HELM_INSTALL_SCRIPT_FILENAME"
+  if [[ -f "$HELM_INSTALL_SCRIPT" ]]
+  then
+    rm "$HELM_INSTALL_SCRIPT"
+  fi
+  curl -fsSL -o $HELM_INSTALL_SCRIPT https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+  chmod 700 $HELM_INSTALL_SCRIPT
+  $HELM_INSTALL_SCRIPT | tee -a $IBB_LOG_FILE
 }
 
 install_argocd () {
@@ -280,60 +316,139 @@ EOF
     --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
 }
 
-install_helm () {
-  if [ "$INSTALL_HELM" != true ]; then 
-    log_info "Install helm flag is not true. Skipping helm installation..."
+install_kubernetes_dashboard() {
+  # Install the Kubernetes Dashboard. Requires helm
+  #
+  # TODO: Tunneling with ktunnel ADuss 2024-10-11
+  #
+  if [ "$INSTALL_K8S_DASHBOARD" != true ]; then 
+    log_info "Install Kubernetes Dashboard flag is not true. Skipping..."
     return 0
   fi
-  if command -v helm &>/dev/null
-  then
-    log_info "Found helm binary. No need to reinstall."
-  else
-    log_info "Installing helm..."
 
-    HELM_INSTALL_SCRIPT="$IBB_DOWNLOAD_PATH/$HELM_INSTALL_SCRIPT_FILENAME"
-    if [[ -f "$HELM_INSTALL_SCRIPT" ]]
-    then
-      rm "$HELM_INSTALL_SCRIPT"
-    fi
-    curl -fsSL -o $HELM_INSTALL_SCRIPT https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-    chmod 700 $HELM_INSTALL_SCRIPT
-    $HELM_INSTALL_SCRIPT | tee -a $IBB_LOG_FILE
+  if [ ! -d "$IBB_K8S_DASHBOARD_PATH" ]; then
+    mkdir "$IBB_K8S_DASHBOARD_PATH"
   fi
+
+  log_info "Adding Kubernetes Dashboard Helm repository"
+  helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/ > /dev/null
+  log_info "Updating Helm repositories"
+  helm repo update > /dev/null
+
+  if [ ! -f "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" ]; then
+    log_info "Writing Kubernetes Dashboard service-account.yaml"
+    tee "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" > /dev/null <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: $K8S_DASHBOARD_NS
+EOF
+  fi
+
+  if [ ! -f "$IBB_K8S_DASHBOARD_PATH/cluster-role-binding.yaml" ]; then
+    log_info "Writing Kubernetes Dashboard cluster-role-binding.yaml"
+    tee "$IBB_K8S_DASHBOARD_PATH/cluster-role-binding.yaml" > /dev/null <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: $K8S_DASHBOARD_NS
+EOF
+  fi
+
+  log_info "Installing Kubernetes Dashboard"
+  helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+    --create-namespace --namespace $K8S_DASHBOARD_NS \
+    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+
+  log_info "Adding Kubernetes Dashboard Service Account"
+  k3s kubectl apply -n $K8S_DASHBOARD_NS -f "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" \
+    --wait=true >> $IBB_LOG_FILE
+  log_info "Adding Kubernetes Dashboard CRB"
+  k3s kubectl apply -n $K8S_DASHBOARD_NS -f "$IBB_K8S_DASHBOARD_PATH/cluster-role-binding.yaml" \
+    --wait=true >> $IBB_LOG_FILE
+  log_info "Generating Kubernetes Dashboard Token"
+  KUBERNETES_DASHBOARD_BEARER_TOKEN=$(kubectl -n $K8S_DASHBOARD_NS create token admin-user)
+  log_info "Kubernetes Dashboard Bearer Token"
+  echo $KUBERNETES_DASHBOARD_BEARER_TOKEN | tee -a "$IBB_K8S_DASHBOARD_PATH/token.txt"
 }
 
-install_k3s () {
+do_k3s() {
   if [ "$INSTALL_K3S" != true ]; then 
     log_info "Install K3s flag is not true. Skipping K3S installation..."
     return 0
   fi
 
+  if [ "$DO_UPGRADE" == true ]; then
+    log_info "Upgrading K3S..."
+    update_k3s
+    log_info "Done."
+    return 0
+  fi
+
+  log_info "Upgrading K3S..."
+  install_k3s
+  log_info "Done."
+}
+
+install_k3s () {
   if command -v k3s &>/dev/null
   then
     log_info "Found k3s binary. No need to reinstall."
     return 0
   else
-    log_info "Installing K3S Version $K3S_VERSION..."
-    K3S_INSTALL_FILE="$IBB_DOWNLOAD_PATH/$K3S_INSTALL_SCRIPT_FILENAME"
-    if [[ -f "$K3S_INSTALL_FILE" ]]
-    then
-      rm "$K3S_INSTALL_FILE"
-    fi
-    curl -sfL https://get.k3s.io > "$K3S_INSTALL_FILE"
-    chmod +x "$K3S_INSTALL_FILE"
-    INSTALL_K3S_VERSION=$K3S_VERSION $K3S_INSTALL_FILE | tee -a $IBB_LOG_FILE
+    upgrade_k3s
   fi
-  mkdir -p $HOME/.kube
-  cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
-  chmod 600 $HOME/.kube/config
+
+  if [ ! -f "$HOME/.kube/config" ]; then
+    log_info "No kubeconfig found. Creating..."
+    mkdir -p $HOME/.kube
+    cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
+    chmod 600 $HOME/.kube/config
+  else
+    log_info "Kubeconfig found. Skipping."
+  fi
 }
 
-install_ktunnel () {
+upgrade_k3s() {
+  log_info "Installing K3S Version $K3S_VERSION..."
+  K3S_INSTALL_FILE="$IBB_DOWNLOAD_PATH/$K3S_INSTALL_SCRIPT_FILENAME"
+  if [[ -f "$K3S_INSTALL_FILE" ]]
+  then
+    rm "$K3S_INSTALL_FILE"
+  fi
+  curl -sfL https://get.k3s.io > "$K3S_INSTALL_FILE"
+  chmod +x "$K3S_INSTALL_FILE"
+  INSTALL_K3S_VERSION=$K3S_VERSION $K3S_INSTALL_FILE | tee -a $IBB_LOG_FILE
+}
+do_ktunnel() {
   if [ "$INSTALL_KTUNNEL" != true ]; then
     log_info "Install KTunnel flag is not true. Skipping KTunnel installation..."
     return 0
   fi
+ 
+   if [ "$DO_UPDATE" == true ]; then
+    log_info "Updating KTunnel..."
+    update_ktunnel
+    log_info "Done."
+    return 0
+  fi
 
+  # If we make it this far, we should install KTunnel
+  log_info "Installing KTunnel..."
+  install_ktunnel
+  log_info "Done."
+}
+
+install_ktunnel () {
   if [ ! -d "$IBB_KTUNNEL_PATH" ]; then
     mkdir "$IBB_KTUNNEL_PATH"
   fi
@@ -449,12 +564,7 @@ EOF
   fi
 
 
-  log_info "Adding IBB Project Helm repository"
-  helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
-  log_info "Updating Helm repositories"
-  helm repo update > /dev/null
-  log_info "Installing ktunnel sidecar injector"
-  helm upgrade --install ibb-ktunnel-inejctor ibb/ibb-ktunnel-injector --namespace kube-system --set-file caCrt=$IBB_INSTALL_DIR/ktunnel/ca.crt,sidecarInjectorCrt=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt,sidecarInjectorKey=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  update_ktunnel
 
   log_info "Adding the KTunnel kubeconfig"
   k3s kubectl apply -f $KTUNNEL_KUBECONFIG_SECRET_MANIFEST >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
@@ -462,69 +572,25 @@ EOF
   set -o noglob
 }
 
-install_kubernetes_dashboard() {
-  # Install the Kubernetes Dashboard. Requires helm
-  #
-  # TODO: Tunneling with ktunnel ADuss 2024-10-11
-  #
-  if [ "$INSTALL_K8S_DASHBOARD" != true ]; then 
-    log_info "Install Kubernetes Dashboard flag is not true. Skipping..."
-    return 0
+
+update_ktunnel () {
+  # Check that required files are present
+  if ! [[ -f "$IBB_INSTALL_DIR/ktunnel/ca.crt" 
+    && -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt" 
+    && -f "$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key" 
+  ]];
+  then
+    log_fail "Ktunnel Update Failed. Required files not present. Please run the install script to generate required files"
+    exit 1
   fi
 
-  if [ ! -d "$IBB_K8S_DASHBOARD_PATH" ]; then
-    mkdir "$IBB_K8S_DASHBOARD_PATH"
-  fi
-
-  log_info "Adding Kubernetes Dashboard Helm repository"
-  helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/ > /dev/null
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
-
-  if [ ! -f "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" ]; then
-    log_info "Writing Kubernetes Dashboard service-account.yaml"
-    tee "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" > /dev/null <<EOF
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: admin-user
-  namespace: $K8S_DASHBOARD_NS
-EOF
-  fi
-
-  if [ ! -f "$IBB_K8S_DASHBOARD_PATH/cluster-role-binding.yaml" ]; then
-    log_info "Writing Kubernetes Dashboard cluster-role-binding.yaml"
-    tee "$IBB_K8S_DASHBOARD_PATH/cluster-role-binding.yaml" > /dev/null <<EOF
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: admin-user
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-- kind: ServiceAccount
-  name: admin-user
-  namespace: $K8S_DASHBOARD_NS
-EOF
-  fi
-
-  log_info "Installing Kubernetes Dashboard"
-  helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
-    --create-namespace --namespace $K8S_DASHBOARD_NS \
-    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
-
-  log_info "Adding Kubernetes Dashboard Service Account"
-  k3s kubectl apply -n $K8S_DASHBOARD_NS -f "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" \
-    --wait=true >> $IBB_LOG_FILE
-  log_info "Adding Kubernetes Dashboard CRB"
-  k3s kubectl apply -n $K8S_DASHBOARD_NS -f "$IBB_K8S_DASHBOARD_PATH/cluster-role-binding.yaml" \
-    --wait=true >> $IBB_LOG_FILE
-  log_info "Generating Kubernetes Dashboard Token"
-  KUBERNETES_DASHBOARD_BEARER_TOKEN=$(kubectl -n $K8S_DASHBOARD_NS create token admin-user)
-  log_info "Kubernetes Dashboard Bearer Token"
-  echo $KUBERNETES_DASHBOARD_BEARER_TOKEN | tee -a "$IBB_K8S_DASHBOARD_PATH/token.txt"
+  log_info "Updating ktunnel sidecar injector"
+  helm upgrade --install ibb-ktunnel-inejctor ibb/ibb-ktunnel-injector --namespace kube-system --set-file caCrt=$IBB_INSTALL_DIR/ktunnel/ca.crt,sidecarInjectorCrt=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt,sidecarInjectorKey=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  
+  KTUNNEL_VERSION=$(helm search repo ibb/ibb-ktunnel-injector | tail -n 1 | cut -f2)
+  log_info "Success. ibb/ibb-ktunnel-injector is now on version $KTUNNEL_VERSION"
 }
 
 link_ibb_to_padi() {
@@ -696,6 +762,14 @@ while [[ $# -gt 0 ]]; do
       UNINSTALL=true
       shift
       ;;
+    --update)
+      DO_UPDATE=true
+      shift
+      ;;
+    --upgrade)
+      DO_UPGRADE=true
+      shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -707,17 +781,20 @@ echo "[****] Installation script version $INSTALL_SCRIPT_VERSION"
 
 # Check the system is compatable
 check_root
+
+# Check if uninstall requested
 check_uninstall
+
 create_ibb_install_dir
 check_required_binaries
 
 # Install the "IBB" software - Kubernetes and Helm
-install_k3s
-install_helm
+do_k3s
+do_helm
 
 # Link must be done before KTunnel, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
-install_ktunnel
+do_ktunnel
 install_dapr
 
 install_cns_dapr
