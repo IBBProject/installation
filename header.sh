@@ -11,7 +11,7 @@ set -o noglob
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="1.4.0"
+INSTALL_SCRIPT_VERSION="1.4.1"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -24,7 +24,7 @@ REQUIRED_BINARIES="base64 curl cut git grep openssl tr"
 # Paths
 IBB_INSTALL_DIR="/opt/ibb"
 IBB_LOG_PATH="$IBB_INSTALL_DIR/logs"
-IBB_LOG_FILE="$IBB_LOG_PATH/install.log"
+IBB_LOG_FILE="$IBB_LOG_PATH/install-$(date +%Y-%m-%dT%H:%M:%S%z).log"
 IBB_DOWNLOAD_PATH="$IBB_INSTALL_DIR/downloads"
 IBB_KTUNNEL_PATH="$IBB_INSTALL_DIR/ktunnel"
 IBB_K8S_DASHBOARD_PATH="$IBB_INSTALL_DIR/k8s-dashboard"
