@@ -1,17 +1,5 @@
-#!/bin/bash
-set -e
-set -o noglob
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-#
-# This file is dynamically generated. Do not overwrite anything
-# in here unless you know what you are doing!
-#
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-INSTALL_SCRIPT_VERSION="1.4.2"
+INSTALL_SCRIPT_VERSION="1.4.3"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"

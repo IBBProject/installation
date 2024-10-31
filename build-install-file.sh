@@ -9,8 +9,23 @@ THIS_SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && p
 
 INSTALL_FILENAME=install-ibb.sh
 
+cat << EOF > $INSTALL_FILENAME
+#!/bin/bash
+set -e
+set -o noglob
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# This file is dynamically generated. Do not overwrite anything
+# in here unless you know what you are doing!
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+EOF
+
 # Wrapping 'EOF' in quotes negates variable expansion
-cat $THIS_SCRIPT_DIR/header.sh > $INSTALL_FILENAME
+cat $THIS_SCRIPT_DIR/header.sh >> $INSTALL_FILENAME
 
 # Cat all the lib/*.sh files into `install-ibb.sh`
 for f in $THIS_SCRIPT_DIR/lib/install/*.sh ; do
