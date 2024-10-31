@@ -2,19 +2,32 @@
 
 A scripted installation to transform an ordinary linux server and transform it into an IBB.
 
+# Known Bugs:
+
+- [ ] Piping curl to bash does not allow the proper wait for the code input.
+- [ ] Updating the IBB needs lots of work.
+- [ ] KTunnel/Grafana does not work on Digital Ocean Droplets:
+    `http: TLS handshake error from 10.42.0.1:60768: remote error: tls: bad certificate`
+
 # Usage
 
 To install an IBB, simply run the following on a linux server:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh > install.sh
+sudo bash install.sh
 ```
 
 or if you need to add arguments:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh | sudo bash -s -- --no-dapr --no-k3s
+curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh > install.sh
+sudo bash install.sh --no-dapr --no-k3s
 ```
+
+See Known Bugs
+
+~~curl -fsSL https://raw.githubusercontent.com/IBBProject/installation/main/install-ibb.sh | sudo bash -s -- --no-dapr --no-k3s~~
 
 ## Arguments
 
@@ -54,11 +67,3 @@ To add a new feature and/or change existing features, edit the scripts inside th
 
 The `install-ibb.sh` is dynamically generated from all the files inside the `lib/` directory. To build the latest `install-ibb.sh` file, simply run `./build-install-file.sh`. This will overwrite the existing `install-ibb.sh` file with the latest version.
 
-# Development TODOs:
-
-- [x] Write builder script to compile all helper functions into one script
-- [x] Fix KTunnel Install where prompts for user input during Certificate Generation
-- [x] Write checks in ktunnel to check if certs are already installed
-- [x] Write checks for all files to not install again if not needed
-- [ ] Write flag to update IBB - k3s, k8s version, helm
-- [ ] Install components using argo for easy updates
