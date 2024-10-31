@@ -159,6 +159,11 @@ install_helm () {
   curl -fsSL -o $HELM_INSTALL_SCRIPT https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
   chmod 700 $HELM_INSTALL_SCRIPT
   $HELM_INSTALL_SCRIPT | tee -a $IBB_LOG_FILE
+  
+  log_info "Adding IBB Project Helm repository"
+  helm repo add ibb https://ibbproject.github.io/helm-charts/ >> tee -a $IBB_LOG_FILE
+  log_info "Updating Helm repositories"
+  helm repo update >> tee -a $IBB_LOG_FILE
 }
 
 install_argocd () {
@@ -193,8 +198,6 @@ install_cns_dapr () {
     return 0
   fi
 
-  log_info "Adding IBB Project Helm repository"
-  helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Installing redis"
@@ -225,8 +228,6 @@ install_cns_kube () {
     return 0
   fi
 
-  log_info "Adding IBB Project Helm repository"
-  helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
 

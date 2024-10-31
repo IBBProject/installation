@@ -5,8 +5,6 @@ install_cns_dapr () {
     return 0
   fi
 
-  log_info "Adding IBB Project Helm repository"
-  helm repo add ibb https://ibbproject.github.io/helm-charts/ > /dev/null
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Installing redis"

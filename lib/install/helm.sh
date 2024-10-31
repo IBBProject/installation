@@ -30,4 +30,9 @@ install_helm () {
   curl -fsSL -o $HELM_INSTALL_SCRIPT https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
   chmod 700 $HELM_INSTALL_SCRIPT
   $HELM_INSTALL_SCRIPT | tee -a $IBB_LOG_FILE
+  
+  log_info "Adding IBB Project Helm repository"
+  helm repo add ibb https://ibbproject.github.io/helm-charts/ >> tee -a $IBB_LOG_FILE
+  log_info "Updating Helm repositories"
+  helm repo update >> tee -a $IBB_LOG_FILE
 }
