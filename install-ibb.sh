@@ -11,7 +11,7 @@ set -o noglob
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="1.4.3"
+INSTALL_SCRIPT_VERSION="1.4.4"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -161,9 +161,9 @@ install_helm () {
   $HELM_INSTALL_SCRIPT | tee -a $IBB_LOG_FILE
   
   log_info "Adding IBB Project Helm repository"
-  helm repo add ibb https://ibbproject.github.io/helm-charts/ >> tee -a $IBB_LOG_FILE
+  helm repo add ibb https://ibbproject.github.io/helm-charts/ >> $IBB_LOG_FILE
   log_info "Updating Helm repositories"
-  helm repo update >> tee -a $IBB_LOG_FILE
+  helm repo update >> $IBB_LOG_FILE
 }
 
 install_argocd () {
