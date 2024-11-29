@@ -48,8 +48,8 @@ while [[ $# -gt 0 ]]; do
       LINK_TO_PADI=false
       shift
       ;;
-    --no-install-ktunnel)
-      INSTALL_KTUNNEL=false
+    --no-install-injector)
+      INSTALL_INJECTOR=false
       shift
       ;;
     --no-install-k8s-dashboard)
@@ -90,18 +90,20 @@ check_required_binaries
 # Install the "IBB" software - Kubernetes and Helm
 do_k3s
 do_helm
+install_k9s
 
 # Link must be done before KTunnel, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
-do_ktunnel
+do_injector
 install_dapr
 
 install_cns_dapr
 install_cns_kube
 notify_complete
 
-install_argocd
-install_kubernetes_dashboard
-install_promstack
 
-display_complete
+# install_argocd
+# install_kubernetes_dashboard
+# install_promstack
+
+# display_complete

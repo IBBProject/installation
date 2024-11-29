@@ -2,3 +2,5 @@
 *.DS_Store
 *.yaml
 *.yml
+
+extra/*
