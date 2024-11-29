@@ -62,6 +62,7 @@ INSTALL_CNS_KUBE=true
 INSTALL_DAPR=true
 INSTALL_HELM=true
 INSTALL_K3S=true
+INSTALL_K9S=true
 INSTALL_KTUNNEL=false
 INSTALL_INJECTOR=true
 INSTALL_K8S_DASHBOARD=false
@@ -489,6 +490,18 @@ update_injector () {
   
   INJECTOR_VERSION=$(helm search repo ibb/ibb-injector | tail -n 1 | cut -f2)
   log_info "Success. ibb/ibb-injector is now on version $INJECTOR_VERSION"
+}
+
+install_k9s () {
+  # Install Argo. Requires helm
+  if [ "$INSTALL_K9s" != true ]; then 
+    log_info "Install k9s flag is not true. Skipping..."
+    return 0
+  fi
+
+  log_info "Installing K9s. This will take a moment"
+  curl -fsSLo "/tmp/k9s.deb" https://raw.githubusercontent.com/derailed/k9s/releases/latest/k9s_linux_amd64.deb
+  dpkg -i /tmp/k9s 
 }
 
 install_kubernetes_dashboard() {
@@ -963,6 +976,7 @@ check_required_binaries
 # Install the "IBB" software - Kubernetes and Helm
 do_k3s
 do_helm
+install_k9s
 
 # Link must be done before KTunnel, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
@@ -972,6 +986,7 @@ install_dapr
 install_cns_dapr
 install_cns_kube
 notify_complete
+
 
 # install_argocd
 # install_kubernetes_dashboard
