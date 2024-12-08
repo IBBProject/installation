@@ -27,7 +27,7 @@ link_ibb_to_padi() {
   while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]
   do
     resp_code=$(curl --write-out '%{http_code}' --silent --output /dev/null -H 'content-type: application/json' $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE)
-    log_log "Attempt $RETRY_COUNT of $MAX_RETRIES to $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE was HTTP $resp_code"
+    log_debug "Attempt $RETRY_COUNT of $MAX_RETRIES to $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE was HTTP $resp_code"
 
     # HTTP 200 is success register, HTTP 403 is fail
     if [ $resp_code -eq 200 ]

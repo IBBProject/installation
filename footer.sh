@@ -16,6 +16,11 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --log-level)
+      LOG_LEVEL=$2
+      shift
+      shift
+      ;;
     --no-argocd)
       INSTALL_ARGOCD=false
       shift
@@ -90,12 +95,12 @@ check_required_binaries
 # Install the "IBB" software - Kubernetes and Helm
 do_k3s
 do_helm
-install_k9s
 
 # Link must be done before KTunnel, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
 do_injector
 install_dapr
+install_k9s
 
 install_cns_dapr
 install_cns_kube
@@ -104,6 +109,6 @@ notify_complete
 
 # install_argocd
 # install_kubernetes_dashboard
-# install_promstack
+install_promstack
 
-# display_complete
+display_complete

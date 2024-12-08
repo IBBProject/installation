@@ -11,12 +11,13 @@ set -o noglob
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="1.4.4"
+INSTALL_SCRIPT_VERSION="2.0.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
 ARGOCD_VERSION="latest"
 DAPR_VERSION=1.13
+LOG_LEVEL=info
 
 # Set some Variables you probably will not need to change
 REQUIRED_BINARIES="base64 curl cut git grep openssl tr"
@@ -32,6 +33,7 @@ IBB_K8S_DASHBOARD_PATH="$IBB_INSTALL_DIR/k8s-dashboard"
 PROMSTACK_PATH="$IBB_INSTALL_DIR/prometheus"
 
 # Filenames
+INJECTOR_TOKEN_PATH=$IBB_INJECTOR_PATH/token
 KTUNNEL_KUBECONFIG_SECRET_MANIFEST="$IBB_KTUNNEL_PATH/ktunnel-auth.yaml"
 K3S_INSTALL_SCRIPT_FILENAME="ibb-install-k3s.sh"
 HELM_INSTALL_SCRIPT_FILENAME="ibb-install-helm.sh"
@@ -46,12 +48,14 @@ IBB_AUTH_SECRET_NAME="ibb-authorization"
 # URLS
 PADI_ONBOARDING_URL="https://api.padi.io/onboarding"
 PADI_ONBOARDING_CONFIG_URL="https://api.padi.io/onboarding/config/ktunnel"
+PADI_ONBOARDING_PIKO_URL="https://api.padi.io/onboarding/config/piko"
 
 # Variables set inside functions that need a global scope
 ARGOCD_ADMIN_PW=""
 PADI_INSTALL_CODE=""
 KUBERNETES_DASHBOARD_BEARER_TOKEN=""
 KTUNNEL_INJECTOR_REQUEST="ibb-ktunnel"
+INJECTOR_REQUEST="piko-sidecar"
 
 # Set default installations
 DO_UPDATE=false
@@ -276,6 +280,15 @@ install_promstack() {
     mkdir "$PROMSTACK_PATH"
   fi
 
+  if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then
+    log_err "Padi config not found. Unable to continue with Promstack Install"
+    return 0
+  fi
+
+  PADI_ID=$(cat $IBB_INSTALL_DIR/padi.json | grep -Po '"padiThing":"([a-zA-Z0-9]+)"' | cut -d ':' -f2 | tr -d '"')
+  
+
+
   log_info "Adding Prometheus Community Helm repository"
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts > /dev/null
   log_info "Updating Helm repositories"
@@ -286,25 +299,28 @@ install_promstack() {
     LOWER_PADI_INSTALL_CODE=$(echo $PADI_INSTALL_CODE | tr '[:upper:]' '[:lower:]')
     tee "$PROMSTACK_PATH/values.yaml" > /dev/null <<EOF
 grafana:
+  grafana.ini:
+    security:
+      allow_embedding: true
+      cookie_secure: true
+      cookie_samesite: "none"
+    auth.anonymous:
+      enabled: true
   extraContainerVolumes:
     - name: podinfo
       downwardAPI:
         items:
-        - path: "labels"
-          fieldRef:
-            fieldPath: metadata.labels
         - path: "annotations"
           fieldRef:
             fieldPath: metadata.annotations
-  extraSecretMounts:
-    - name: kubeconfig
-      secretName: kubeconfig
-      mountPath: /root/.kube/config
   podAnnotations:
-    injector.ktunnel.ibbproject.com/request: $KTUNNEL_INJECTOR_REQUEST
-  podLabels:
-    injector.ktunnel.ibbproject.com/id: kt-$LOWER_PADI_INSTALL_CODE
-    injector.ktunnel.ibbproject.com/port: "3000"
+    injector.tunnel.ibbproject.com/request: $INJECTOR_REQUEST
+    injector.tunnel.ibbproject.com/tunnelId: "$PADI_ID"
+    injector.tunnel.ibbproject.com/tunnelExposePort: "3000"
+  extraSecretMounts:
+    - name: token
+      secretName: piko-token
+      mountPath: /etc/piko/mnt
   securityContext:
     runAsNonRoot: false
     runAsUser: 0
@@ -343,40 +359,6 @@ install_injector () {
   if [ ! -d "$IBB_INJECTOR_PATH" ]; then
     mkdir "$IBB_INJECTOR_PATH"
   fi
-
-  # if [ ! -f "$KTUNNEL_KUBECONFIG_SECRET_MANIFEST" ]; then
-  #   log_info "Could not find $KTUNNEL_KUBECONFIG_SECRET_MANIFEST file. Downloading..."
-
-  #   if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then
-  #     log_fail "Could not find authorization file. Failing"
-  #   fi
-
-  #   set +o noglob
-
-  #   TKN=$( \
-  #     cat "$IBB_INSTALL_DIR/padi.json" \
-  #     | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' \
-  #     | cut -d ':' -f2 \
-  #     | tr -d '"' \
-  #   )
-
-  #   # Fail if token is less than 150 chars
-  #   if [ "${#TKN}" -lt 150 ]; then
-  #     echo "Padi token looks incorrect. Failing."
-  #   fi
-
-  #   # Make CURL request to Padi to get manifest file
-  #   curl --request GET \
-  #     --silent \
-  #     --url $PADI_ONBOARDING_CONFIG_URL \
-  #     --header "Authorization: Bearer $TKN" \
-  #     --header "content-type: application/json" \
-  #     | grep -Po '"config":".*"' \
-  #     | cut -d ":" -f2 \
-  #     | tr -d '"' \
-  #     | base64 -d \
-  #     > $KTUNNEL_KUBECONFIG_SECRET_MANIFEST
-  # fi
 
   if [ ! -f "$IBB_INJECTOR_PATH/csr.conf" ]; then
     log_info "Writing injector csr.conf"
@@ -458,9 +440,38 @@ EOF
   # Installation has been configured, run the update to install the injector
   update_injector
 
-  log_info "[TODO] Adding the piko tunnel secrets"
-  # k3s kubectl apply -f $KTUNNEL_KUBECONFIG_SECRET_MANIFEST >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  if [ ! -f "$INJECTOR_TOKEN_PATH" ]; then
+    log_info "Could not find $INJECTOR_TOKEN_PATH file. Downloading..."
 
+    if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then
+      log_fail "Could not find authorization file. Failing"
+    fi
+
+    set +o noglob
+
+    TKN=$( \
+      cat "$IBB_INSTALL_DIR/padi.json" \
+        | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' \
+        | cut -d ':' -f2 \
+        | tr -d '"'
+    )
+
+    # Fail if token is less than 150 chars
+    if [ "${#TKN}" -lt 150 ]; then
+      echo "Padi token looks incorrect. Failing."
+    fi
+
+    log_debug "Making CURL request to PADI"
+    # Make CURL request to Padi to get manifest file
+    curl --request GET \
+      --silent \
+      --url $PADI_ONBOARDING_PIKO_URL \
+      --header "Authorization: Bearer $TKN" \
+      --header "content-type: application/json" \
+      > $INJECTOR_TOKEN_PATH
+
+    k3s kubectl create secret generic -n default piko-token --from-file=$INJECTOR_TOKEN_PATH >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  fi
   set -o noglob
 }
 
@@ -501,7 +512,7 @@ install_k9s () {
 
   log_info "Installing K9s. This will take a moment"
   curl -fsSLo "/tmp/k9s.deb" https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb
-  dpkg -i /tmp/k9s.deb
+  # dpkg -i /tmp/k9s.deb
 }
 
 install_kubernetes_dashboard() {
@@ -810,7 +821,7 @@ link_ibb_to_padi() {
   while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]
   do
     resp_code=$(curl --write-out '%{http_code}' --silent --output /dev/null -H 'content-type: application/json' $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE)
-    log_log "Attempt $RETRY_COUNT of $MAX_RETRIES to $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE was HTTP $resp_code"
+    log_debug "Attempt $RETRY_COUNT of $MAX_RETRIES to $PADI_ONBOARDING_URL/$PADI_INSTALL_CODE was HTTP $resp_code"
 
     # HTTP 200 is success register, HTTP 403 is fail
     if [ $resp_code -eq 200 ]
@@ -837,9 +848,11 @@ log_info () {
   echo -e "[****]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" | tee -a $IBB_LOG_FILE
 }
 
-log_log () {
-  # [----] <TAB> 2024-12-31T23:59:59-0600 <TAB> ARG1 ARG2
-  echo -e "[----]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" >> $IBB_LOG_FILE
+log_debug () {
+  if [ "$LOG_LEVEL" == "debug" ]; then
+    # [----] <TAB> 2024-12-31T23:59:59-0600 <TAB> ARG1 ARG2
+    echo -e "[----]\t$(date +%Y-%m-%dT%H:%M:%S%z)\t$@" >> $IBB_LOG_FILE
+  fi
 }
 
 log_fail () {
@@ -899,6 +912,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ktunnel-kubeconfig-secret-file)
       KTUNNEL_KUBECONFIG_SECRET_MANIFEST=$2
+      shift
+      shift
+      ;;
+    --log-level)
+      LOG_LEVEL=$2
       shift
       shift
       ;;
@@ -976,12 +994,12 @@ check_required_binaries
 # Install the "IBB" software - Kubernetes and Helm
 do_k3s
 do_helm
-install_k9s
 
 # Link must be done before KTunnel, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
 do_injector
 install_dapr
+install_k9s
 
 install_cns_dapr
 install_cns_kube
@@ -990,6 +1008,6 @@ notify_complete
 
 # install_argocd
 # install_kubernetes_dashboard
-# install_promstack
+install_promstack
 
-# display_complete
+display_complete

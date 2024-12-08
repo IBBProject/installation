@@ -22,40 +22,6 @@ install_injector () {
     mkdir "$IBB_INJECTOR_PATH"
   fi
 
-  # if [ ! -f "$KTUNNEL_KUBECONFIG_SECRET_MANIFEST" ]; then
-  #   log_info "Could not find $KTUNNEL_KUBECONFIG_SECRET_MANIFEST file. Downloading..."
-
-  #   if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then
-  #     log_fail "Could not find authorization file. Failing"
-  #   fi
-
-  #   set +o noglob
-
-  #   TKN=$( \
-  #     cat "$IBB_INSTALL_DIR/padi.json" \
-  #     | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' \
-  #     | cut -d ':' -f2 \
-  #     | tr -d '"' \
-  #   )
-
-  #   # Fail if token is less than 150 chars
-  #   if [ "${#TKN}" -lt 150 ]; then
-  #     echo "Padi token looks incorrect. Failing."
-  #   fi
-
-  #   # Make CURL request to Padi to get manifest file
-  #   curl --request GET \
-  #     --silent \
-  #     --url $PADI_ONBOARDING_CONFIG_URL \
-  #     --header "Authorization: Bearer $TKN" \
-  #     --header "content-type: application/json" \
-  #     | grep -Po '"config":".*"' \
-  #     | cut -d ":" -f2 \
-  #     | tr -d '"' \
-  #     | base64 -d \
-  #     > $KTUNNEL_KUBECONFIG_SECRET_MANIFEST
-  # fi
-
   if [ ! -f "$IBB_INJECTOR_PATH/csr.conf" ]; then
     log_info "Writing injector csr.conf"
     cat << EOF > "$IBB_INJECTOR_PATH/csr.conf"
@@ -136,9 +102,38 @@ EOF
   # Installation has been configured, run the update to install the injector
   update_injector
 
-  log_info "[TODO] Adding the piko tunnel secrets"
-  # k3s kubectl apply -f $KTUNNEL_KUBECONFIG_SECRET_MANIFEST >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  if [ ! -f "$INJECTOR_TOKEN_PATH" ]; then
+    log_info "Could not find $INJECTOR_TOKEN_PATH file. Downloading..."
 
+    if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then
+      log_fail "Could not find authorization file. Failing"
+    fi
+
+    set +o noglob
+
+    TKN=$( \
+      cat "$IBB_INSTALL_DIR/padi.json" \
+        | grep -Po '"padiToken":"[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"' \
+        | cut -d ':' -f2 \
+        | tr -d '"'
+    )
+
+    # Fail if token is less than 150 chars
+    if [ "${#TKN}" -lt 150 ]; then
+      echo "Padi token looks incorrect. Failing."
+    fi
+
+    log_debug "Making CURL request to PADI"
+    # Make CURL request to Padi to get manifest file
+    curl --request GET \
+      --silent \
+      --url $PADI_ONBOARDING_PIKO_URL \
+      --header "Authorization: Bearer $TKN" \
+      --header "content-type: application/json" \
+      > $INJECTOR_TOKEN_PATH
+
+    k3s kubectl create secret generic -n default piko-token --from-file=$INJECTOR_TOKEN_PATH >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  fi
   set -o noglob
 }
 

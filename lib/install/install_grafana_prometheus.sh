@@ -10,6 +10,15 @@ install_promstack() {
     mkdir "$PROMSTACK_PATH"
   fi
 
+  if [ ! -f "$IBB_INSTALL_DIR/padi.json" ]; then
+    log_err "Padi config not found. Unable to continue with Promstack Install"
+    return 0
+  fi
+
+  PADI_ID=$(cat $IBB_INSTALL_DIR/padi.json | grep -Po '"padiThing":"([a-zA-Z0-9]+)"' | cut -d ':' -f2 | tr -d '"')
+  
+
+
   log_info "Adding Prometheus Community Helm repository"
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts > /dev/null
   log_info "Updating Helm repositories"
@@ -20,25 +29,28 @@ install_promstack() {
     LOWER_PADI_INSTALL_CODE=$(echo $PADI_INSTALL_CODE | tr '[:upper:]' '[:lower:]')
     tee "$PROMSTACK_PATH/values.yaml" > /dev/null <<EOF
 grafana:
+  grafana.ini:
+    security:
+      allow_embedding: true
+      cookie_secure: true
+      cookie_samesite: "none"
+    auth.anonymous:
+      enabled: true
   extraContainerVolumes:
     - name: podinfo
       downwardAPI:
         items:
-        - path: "labels"
-          fieldRef:
-            fieldPath: metadata.labels
         - path: "annotations"
           fieldRef:
             fieldPath: metadata.annotations
-  extraSecretMounts:
-    - name: kubeconfig
-      secretName: kubeconfig
-      mountPath: /root/.kube/config
   podAnnotations:
-    injector.ktunnel.ibbproject.com/request: $KTUNNEL_INJECTOR_REQUEST
-  podLabels:
-    injector.ktunnel.ibbproject.com/id: kt-$LOWER_PADI_INSTALL_CODE
-    injector.ktunnel.ibbproject.com/port: "3000"
+    injector.tunnel.ibbproject.com/request: $INJECTOR_REQUEST
+    injector.tunnel.ibbproject.com/tunnelId: "$PADI_ID"
+    injector.tunnel.ibbproject.com/tunnelExposePort: "3000"
+  extraSecretMounts:
+    - name: token
+      secretName: piko-token
+      mountPath: /etc/piko/mnt
   securityContext:
     runAsNonRoot: false
     runAsUser: 0
