@@ -208,7 +208,7 @@ install_cns_dapr () {
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Installing redis"
-  helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  helm upgrade --install ibb-redis ibb/ibb-redis --namespace default --wait | tee -a $IBB_LOG_FILE
 
   # Create IBB Authentication Secrets
   k3s kubectl create namespace $IBB_NS --dry-run=client -o yaml | k3s kubectl apply -f - >> $IBB_LOG_FILE
@@ -223,7 +223,7 @@ install_cns_dapr () {
 
   # Install CNS Dapr
   log_info "Installing CNS Dapr"
-  helm upgrade --install ibb-cns-dapr ibb/ibb-cns-dapr --namespace $IBB_NS --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  helm upgrade --install ibb-cns-dapr ibb/ibb-cns-dapr --namespace $IBB_NS --wait | tee -a $IBB_LOG_FILE
 
   log_info "CNS Dapr Installed"
 }
@@ -248,7 +248,7 @@ install_cns_kube () {
 
   # Install CNS Kube
   log_info "Installing CNS Kube"
-  helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait | tee -a $IBB_LOG_FILE
 
   log_info "CNS Kube Installed"
 }
@@ -264,7 +264,7 @@ install_dapr() {
   log_info "Updating Helm Repos"
   helm repo update > /dev/null
   log_info "Installing dapr"
-  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait | tee -a $IBB_LOG_FILE
   log_info "Finished installing dapr"
 }
 
@@ -333,7 +333,7 @@ EOF
   log_info "Installing Prometheus & Grafana Dashboard"
   helm upgrade --install promstack prometheus-community/kube-prometheus-stack \
     --values $PROMSTACK_PATH/values.yaml \
-    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+    --wait | tee -a $IBB_LOG_FILE
 }
 
 do_injector() {
@@ -497,7 +497,7 @@ update_injector () {
     --set-file injector.caCrt=$IBB_INJECTOR_PATH/ca.crt \
     --set-file injector.sidecarInjectorCrt=$IBB_INJECTOR_PATH/sidecar-injector.crt \
     --set-file injector.sidecarInjectorKey=$IBB_INJECTOR_PATH/sidecar-injector.key \
-    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+    --wait | tee -a $IBB_LOG_FILE
   
   INJECTOR_VERSION=$(helm search repo ibb/ibb-injector | tail -n 1 | cut -f2)
   log_info "Success. ibb/ibb-injector is now on version $INJECTOR_VERSION"
@@ -566,7 +566,7 @@ EOF
   log_info "Installing Kubernetes Dashboard"
   helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
     --create-namespace --namespace $K8S_DASHBOARD_NS \
-    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+    --wait | tee -a $IBB_LOG_FILE
 
   log_info "Adding Kubernetes Dashboard Service Account"
   k3s kubectl apply -n $K8S_DASHBOARD_NS -f "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" \
@@ -786,7 +786,7 @@ update_ktunnel () {
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Updating ktunnel sidecar injector"
-  helm upgrade --install ibb-ktunnel-inejctor ibb/ibb-ktunnel-injector --namespace kube-system --set-file caCrt=$IBB_INSTALL_DIR/ktunnel/ca.crt,sidecarInjectorCrt=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt,sidecarInjectorKey=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  helm upgrade --install ibb-ktunnel-inejctor ibb/ibb-ktunnel-injector --namespace kube-system --set-file caCrt=$IBB_INSTALL_DIR/ktunnel/ca.crt,sidecarInjectorCrt=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.crt,sidecarInjectorKey=$IBB_INSTALL_DIR/ktunnel/sidecar-injector.key --wait | tee -a $IBB_LOG_FILE
   
   KTUNNEL_VERSION=$(helm search repo ibb/ibb-ktunnel-injector | tail -n 1 | cut -f2)
   log_info "Success. ibb/ibb-ktunnel-injector is now on version $KTUNNEL_VERSION"

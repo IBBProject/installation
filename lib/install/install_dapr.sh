@@ -9,6 +9,6 @@ install_dapr() {
   log_info "Updating Helm Repos"
   helm repo update > /dev/null
   log_info "Installing dapr"
-  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  helm upgrade --install dapr dapr/dapr --namespace $DAPR_NS --create-namespace --version "$DAPR_VERSION" --wait | tee -a $IBB_LOG_FILE
   log_info "Finished installing dapr"
 }

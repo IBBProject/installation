@@ -159,7 +159,7 @@ update_injector () {
     --set-file injector.caCrt=$IBB_INJECTOR_PATH/ca.crt \
     --set-file injector.sidecarInjectorCrt=$IBB_INJECTOR_PATH/sidecar-injector.crt \
     --set-file injector.sidecarInjectorKey=$IBB_INJECTOR_PATH/sidecar-injector.key \
-    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+    --wait | tee -a $IBB_LOG_FILE
   
   INJECTOR_VERSION=$(helm search repo ibb/ibb-injector | tail -n 1 | cut -f2)
   log_info "Success. ibb/ibb-injector is now on version $INJECTOR_VERSION"

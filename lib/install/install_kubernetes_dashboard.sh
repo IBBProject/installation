@@ -49,7 +49,7 @@ EOF
   log_info "Installing Kubernetes Dashboard"
   helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
     --create-namespace --namespace $K8S_DASHBOARD_NS \
-    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+    --wait | tee -a $IBB_LOG_FILE
 
   log_info "Adding Kubernetes Dashboard Service Account"
   k3s kubectl apply -n $K8S_DASHBOARD_NS -f "$IBB_K8S_DASHBOARD_PATH/service-account.yaml" \

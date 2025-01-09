@@ -63,5 +63,5 @@ EOF
   log_info "Installing Prometheus & Grafana Dashboard"
   helm upgrade --install promstack prometheus-community/kube-prometheus-stack \
     --values $PROMSTACK_PATH/values.yaml \
-    --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+    --wait | tee -a $IBB_LOG_FILE
 }

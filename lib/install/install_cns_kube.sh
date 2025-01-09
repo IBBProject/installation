@@ -18,7 +18,7 @@ install_cns_kube () {
 
   # Install CNS Kube
   log_info "Installing CNS Kube"
-  helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
+  helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait | tee -a $IBB_LOG_FILE
 
   log_info "CNS Kube Installed"
 }
