@@ -13,6 +13,7 @@ cat << EOF > $INSTALL_FILENAME
 #!/bin/bash
 set -e
 set -o noglob
+set -o pipefail
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
