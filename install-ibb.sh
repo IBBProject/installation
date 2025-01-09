@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="2.2.1"
+INSTALL_SCRIPT_VERSION="2.2.2"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -472,9 +472,14 @@ EOF
       --header "Authorization: Bearer $TKN" \
       --header "content-type: application/json" \
       > $INJECTOR_TOKEN_PATH
-
-    k3s kubectl create secret generic -n default piko-token --from-file=$INJECTOR_TOKEN_PATH >> $IBB_LOG_FILE 2>> $IBB_LOG_FILE
   fi
+
+  # Add piko-token k8s secret if not found
+  if ! k3s kubectl get secret -n default piko-token > /dev/null 2>&1; then
+    log_info "Piko token not found in cluster. Creating..."
+    k3s kubectl create secret generic -n default piko-token --from-file=$INJECTOR_TOKEN_PATH | tee -a $IBB_LOG_FILE
+  fi
+
   set -o noglob
 }
 
