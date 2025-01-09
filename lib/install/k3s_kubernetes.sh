@@ -1,4 +1,11 @@
 do_k3s() {
+  if [ ! -L "$HOME/.kube/config" ]; then
+    log_info "KubeConfig is not a symlink. Fixing this..."
+    mv -f "$HOME/.kube/config" "$HOME/.kube/conf.backup"
+    ln -s /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"
+    log_info "Existing Kubeconfig moved to ~/.kube/conf.backup"
+  fi
+
   if [ "$INSTALL_K3S" != true ]; then 
     log_info "Install K3s flag is not true. Skipping K3S installation..."
     return 0
