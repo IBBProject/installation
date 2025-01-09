@@ -28,7 +28,7 @@ install_k3s () {
   if [ ! -f "$HOME/.kube/config" ]; then
     log_info "No kubeconfig found. Creating..."
     mkdir -p $HOME/.kube
-    cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
+    ln -s /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
     chmod 600 $HOME/.kube/config
   else
     log_info "Kubeconfig found. Skipping."

@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="2.1.0"
+INSTALL_SCRIPT_VERSION="2.2.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -107,9 +107,11 @@ check_uninstall () {
   # Uninstall IBB
   if [ "$UNINSTALL" = true ]; then
     log_info "Uninstalling K3S"
+    log_info "Removing k3s..."
     /usr/local/bin/k3s-uninstall.sh || true
-    log_info "Deleting IBB Directory"
+    log_info "Deleting IBB Directory & KubeConfig"
     rm -rvf "$IBB_INSTALL_DIR" || true
+    mv -f "$HOME/.kube/config" "$HOME/.kube/config-bak" || echo "That's okay. Continuing..."
     echo "[****] IBB has been Uninstalled"
     exit 0
   fi
@@ -611,7 +613,7 @@ install_k3s () {
   if [ ! -f "$HOME/.kube/config" ]; then
     log_info "No kubeconfig found. Creating..."
     mkdir -p $HOME/.kube
-    cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
+    ln -s /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
     chmod 600 $HOME/.kube/config
   else
     log_info "Kubeconfig found. Skipping."
