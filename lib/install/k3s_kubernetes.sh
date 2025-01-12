@@ -1,5 +1,5 @@
 do_k3s() {
-  if [ ! -L "$HOME/.kube/config" ]; then
+  if [ -f "$HOME/.kube/config" ] && [ ! -L "$HOME/.kube/config" ]; then
     log_info "KubeConfig is not a symlink. Fixing this..."
     mv -f "$HOME/.kube/config" "$HOME/.kube/conf.backup"
     ln -s /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"

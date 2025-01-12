@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="2.2.2"
+INSTALL_SCRIPT_VERSION="2.2.3"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -589,7 +589,7 @@ EOF
 }
 
 do_k3s() {
-  if [ ! -L "$HOME/.kube/config" ]; then
+  if [ -f "$HOME/.kube/config" ] && [ ! -L "$HOME/.kube/config" ]; then
     log_info "KubeConfig is not a symlink. Fixing this..."
     mv -f "$HOME/.kube/config" "$HOME/.kube/conf.backup"
     ln -s /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"
