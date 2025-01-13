@@ -96,7 +96,7 @@ check_required_binaries
 do_k3s
 do_helm
 
-# Link must be done before KTunnel, CNS-Dapr, or CNS-Kube can be installed
+# Link must be done before Injector, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
 do_injector
 install_dapr
@@ -104,11 +104,11 @@ install_k9s
 
 install_cns_dapr
 install_cns_kube
-notify_complete
 
 
 # install_argocd
 # install_kubernetes_dashboard
 install_promstack
 
+notify_complete
 display_complete
