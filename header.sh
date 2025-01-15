@@ -1,5 +1,5 @@
 
-INSTALL_SCRIPT_VERSION="2.2.3"
+INSTALL_SCRIPT_VERSION="3.0.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -43,7 +43,7 @@ ARGOCD_ADMIN_PW=""
 PADI_INSTALL_CODE=""
 KUBERNETES_DASHBOARD_BEARER_TOKEN=""
 KTUNNEL_INJECTOR_REQUEST="ibb-ktunnel"
-INJECTOR_REQUEST="piko-sidecar"
+INJECTOR_REQUEST="ibb-tunnel"
 
 # Set default installations
 DO_UPDATE=false

@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="2.2.3"
+INSTALL_SCRIPT_VERSION="3.0.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -56,7 +56,7 @@ ARGOCD_ADMIN_PW=""
 PADI_INSTALL_CODE=""
 KUBERNETES_DASHBOARD_BEARER_TOKEN=""
 KTUNNEL_INJECTOR_REQUEST="ibb-ktunnel"
-INJECTOR_REQUEST="piko-sidecar"
+INJECTOR_REQUEST="ibb-tunnel"
 
 # Set default installations
 DO_UPDATE=false
@@ -363,83 +363,6 @@ install_injector () {
     mkdir "$IBB_INJECTOR_PATH"
   fi
 
-  if [ ! -f "$IBB_INJECTOR_PATH/csr.conf" ]; then
-    log_info "Writing injector csr.conf"
-    cat << EOF > "$IBB_INJECTOR_PATH/csr.conf"
-[ req ]
-default_bits        = 2048
-default_keyfile     = sidecar-injector.key
-distinguished_name  = req_distinguished_name
-req_extensions      = req_ext
-
-[ req_distinguished_name ]
-countryName                 = Country Name (2 letter code)
-countryName_default         = US
-stateOrProvinceName         = State or Province Name (full name)
-stateOrProvinceName_default = NC
-localityName                = Locality Name (eg, city)
-localityName_default        = Ashville
-organizationName            = Organization Name (eg, company)
-organizationName_default    = IBB
-commonName                  = Common Name (eg, YOUR name)
-commonName_default          = ibb-injector
-commonName_max              = 64
-
-[ req_ext ]
-subjectAltName          = @alt_names
-
-[alt_names]
-DNS.1   = ibb-injector
-DNS.2   = ibb-injector.kube-system
-DNS.3   = ibb-injector.kube-system.svc
-EOF
-  fi
-
-  # Generate OpenSSL Certificates needed
-  log_info "Generating injector certificates and keys..."
-
-  if [ ! -f "$IBB_INJECTOR_PATH/ca.key" ]; then
-    log_info "Creating ca.key"
-    openssl genrsa -out $IBB_INJECTOR_PATH/ca.key 4096 | tee -a $IBB_LOG_FILE
-  fi
-
-  if [ ! -f "$IBB_INJECTOR_PATH/ca.crt" ]; then
-    log_info "Creating ca.crt"
-    openssl req -x509 -new -nodes \
-            -subj "/C=US/ST=NC/O=IBB/CN=ibb-injector" \
-            -config "$IBB_INJECTOR_PATH/csr.conf" \
-            -key $IBB_INJECTOR_PATH/ca.key \
-            -sha256 -days 9999 \
-            -out $IBB_INJECTOR_PATH/ca.crt | tee -a $IBB_LOG_FILE
-  fi
-
-
-  if [ ! -f "$IBB_INJECTOR_PATH/sidecar-injector.key" ]; then
-    log_info "Creating sidecar-injector.key"
-    openssl genrsa -out $IBB_INJECTOR_PATH/sidecar-injector.key 2048 | tee -a $IBB_LOG_FILE
-  fi
-
-  if [ ! -f "$IBB_INJECTOR_PATH/sidecar-injector.csr" ]; then
-    log_info "Creating sidecar-injector.csr"
-    openssl req -new -key $IBB_INJECTOR_PATH/sidecar-injector.key \
-            -out $IBB_INJECTOR_PATH/sidecar-injector.csr \
-            -config "$IBB_INJECTOR_PATH/csr.conf" \
-            -subj "/C=US/ST=NC/O=IBB/CN=ibb-injector" | tee -a $IBB_LOG_FILE
-  fi
-
-  if [ ! -f "$IBB_INJECTOR_PATH/sidecar-injector.crt" ]; then
-    log_info "Creating the certificate"
-    openssl x509 -req -in $IBB_INJECTOR_PATH/sidecar-injector.csr \
-            -CA $IBB_INJECTOR_PATH/ca.crt \
-            -CAkey $IBB_INJECTOR_PATH/ca.key \
-            -CAcreateserial \
-            -out $IBB_INJECTOR_PATH/sidecar-injector.crt \
-            -extensions req_ext \
-            -extfile $IBB_INJECTOR_PATH/csr.conf \
-            -days 9999 -sha256 >> $IBB_LOG_FILE 2>&1
-  fi
-
-
   # Installation has been configured, run the update to install the injector
   update_injector
 
@@ -485,26 +408,12 @@ EOF
 
 
 update_injector () {
-  # Check that required files are present
-  # TODO: Check certificate validity and update if needed
-  if ! [[ -f "$IBB_INJECTOR_PATH/ca.crt" 
-    && -f "$IBB_INJECTOR_PATH/sidecar-injector.crt" 
-    && -f "$IBB_INJECTOR_PATH/sidecar-injector.key" 
-  ]];
-  then
-    log_fail "Sidecar injector update failed. Required files not present. Please run the install script to generate required files"
-    exit 1
-  fi
-
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Updating sidecar injector"
   helm upgrade --install ibb-injector \
     ibb/ibb-injector \
-    --namespace kube-system \
-    --set-file injector.caCrt=$IBB_INJECTOR_PATH/ca.crt \
-    --set-file injector.sidecarInjectorCrt=$IBB_INJECTOR_PATH/sidecar-injector.crt \
-    --set-file injector.sidecarInjectorKey=$IBB_INJECTOR_PATH/sidecar-injector.key \
+    --namespace sidecar-injector \
     --wait | tee -a $IBB_LOG_FILE
   
   INJECTOR_VERSION=$(helm search repo ibb/ibb-injector | tail -n 1 | cut -f2)
@@ -519,8 +428,8 @@ install_k9s () {
   fi
 
   log_info "Installing K9s. This will take a moment"
-  curl -fsSLo "/tmp/k9s.deb" https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb
-  # dpkg -i /tmp/k9s.deb
+  curl -fsSLo "$IBB_DOWNLOAD_PATH/k9s.deb" \
+    https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb
 }
 
 install_kubernetes_dashboard() {

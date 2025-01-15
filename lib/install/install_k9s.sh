@@ -6,6 +6,6 @@ install_k9s () {
   fi
 
   log_info "Installing K9s. This will take a moment"
-  curl -fsSLo "/tmp/k9s.deb" https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb
-  # dpkg -i /tmp/k9s.deb
+  curl -fsSLo "$IBB_DOWNLOAD_PATH/k9s.deb" \
+    https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb
 }
