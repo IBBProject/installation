@@ -73,6 +73,7 @@ update_injector () {
   helm upgrade --install ibb-injector \
     ibb/ibb-injector \
     --namespace sidecar-injector \
+    --create-namespace \
     --wait | tee -a $IBB_LOG_FILE
   
   INJECTOR_VERSION=$(helm search repo ibb/ibb-injector | tail -n 1 | cut -f2)

@@ -77,6 +77,10 @@ while [[ $# -gt 0 ]]; do
       DO_UPGRADE=true
       shift
       ;;
+    --version|-v)
+      echo "$INSTALL_SCRIPT_VERSION"
+      exit 0
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -95,12 +99,12 @@ check_required_binaries
 # Install the "IBB" software - Kubernetes and Helm
 do_k3s
 do_helm
+install_k9s
 
 # Link must be done before Injector, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
 do_injector
 install_dapr
-install_k9s
 
 install_cns_dapr
 install_cns_kube

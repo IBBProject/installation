@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="3.0.0"
+INSTALL_SCRIPT_VERSION="3.0.2"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -414,6 +414,7 @@ update_injector () {
   helm upgrade --install ibb-injector \
     ibb/ibb-injector \
     --namespace sidecar-injector \
+    --create-namespace \
     --wait | tee -a $IBB_LOG_FILE
   
   INJECTOR_VERSION=$(helm search repo ibb/ibb-injector | tail -n 1 | cut -f2)
@@ -900,6 +901,10 @@ while [[ $# -gt 0 ]]; do
       DO_UPGRADE=true
       shift
       ;;
+    --version|-v)
+      echo "$INSTALL_SCRIPT_VERSION"
+      exit 0
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -918,12 +923,12 @@ check_required_binaries
 # Install the "IBB" software - Kubernetes and Helm
 do_k3s
 do_helm
+install_k9s
 
 # Link must be done before Injector, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
 do_injector
 install_dapr
-install_k9s
 
 install_cns_dapr
 install_cns_kube
