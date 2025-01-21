@@ -29,6 +29,30 @@ install_promstack() {
     LOWER_PADI_INSTALL_CODE=$(echo $PADI_INSTALL_CODE | tr '[:upper:]' '[:lower:]')
     tee "$PROMSTACK_PATH/values.yaml" > /dev/null <<EOF
 grafana:
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      k3s-cluster-monitoring:
+        # Ref: https://grafana.com/grafana/dashboards/15282-k8s-rke-cluster-monitoring/
+        gnetId: 15282
+        revision: 1
+        datasource: Prometheus
+      k8s-k3s:
+        # Ref: https://grafana.com/grafana/dashboards/15282-k8s-rke-cluster-monitoring/
+        gnetId: 16450
+        revision: 3
+        datasource: Prometheus
   grafana.ini:
     security:
       allow_embedding: true

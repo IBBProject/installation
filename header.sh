@@ -1,5 +1,5 @@
 
-INSTALL_SCRIPT_VERSION="3.0.2"
+INSTALL_SCRIPT_VERSION="3.1.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
