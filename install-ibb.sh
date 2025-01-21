@@ -297,10 +297,8 @@ install_promstack() {
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
 
-  if [ ! -f "$PROMSTACK_PATH/values.yaml" ]; then
-    log_info "Writing Promstack Values"
-    LOWER_PADI_INSTALL_CODE=$(echo $PADI_INSTALL_CODE | tr '[:upper:]' '[:lower:]')
-    tee "$PROMSTACK_PATH/values.yaml" > /dev/null <<EOF
+  log_info "Writing Promstack Values"
+  tee "$PROMSTACK_PATH/values.yaml" > /dev/null <<EOF
 grafana:
   dashboardProviders:
     dashboardproviders.yaml:
@@ -356,7 +354,6 @@ grafana:
     runAsGroup: 0
     fsGroup: 0
 EOF
-  fi
 
 
   log_info "Installing Prometheus & Grafana Dashboard"
