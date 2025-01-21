@@ -54,12 +54,14 @@ grafana:
         revision: 3
         datasource: Prometheus
   grafana.ini:
+    auth.anonymous:
+      enabled: true
+    dashboards:
+      default_home_dashboard_path: "/var/lib/grafana/dashboards/default/k8s-k3s.json"
     security:
       allow_embedding: true
       cookie_secure: true
       cookie_samesite: "none"
-    auth.anonymous:
-      enabled: true
   extraContainerVolumes:
     - name: podinfo
       downwardAPI:

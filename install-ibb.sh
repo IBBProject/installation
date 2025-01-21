@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="3.1.0"
+INSTALL_SCRIPT_VERSION="3.2.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -327,12 +327,14 @@ grafana:
         revision: 3
         datasource: Prometheus
   grafana.ini:
+    auth.anonymous:
+      enabled: true
+    dashboards:
+      default_home_dashboard_path: "/var/lib/grafana/dashboards/default/k8s-k3s.json"
     security:
       allow_embedding: true
       cookie_secure: true
       cookie_samesite: "none"
-    auth.anonymous:
-      enabled: true
   extraContainerVolumes:
     - name: podinfo
       downwardAPI:
