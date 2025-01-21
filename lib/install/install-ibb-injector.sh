@@ -70,6 +70,9 @@ update_injector () {
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Updating sidecar injector"
+  # Uninstall the old ibb-injector from the kube-system namespace, otherwise
+  # helm fails
+  helm uninstall ibb-injector -n kube-system --ignore-not-found
   helm upgrade --install ibb-injector \
     ibb/ibb-injector \
     --namespace sidecar-injector \

@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="3.2.0"
+INSTALL_SCRIPT_VERSION="3.2.1"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -437,6 +437,9 @@ update_injector () {
   log_info "Updating Helm repositories"
   helm repo update > /dev/null
   log_info "Updating sidecar injector"
+  # Uninstall the old ibb-injector from the kube-system namespace, otherwise
+  # helm fails
+  helm uninstall ibb-injector -n kube-system --ignore-not-found
   helm upgrade --install ibb-injector \
     ibb/ibb-injector \
     --namespace sidecar-injector \
