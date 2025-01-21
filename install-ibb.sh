@@ -12,7 +12,7 @@ set -o pipefail
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-INSTALL_SCRIPT_VERSION="3.2.1"
+INSTALL_SCRIPT_VERSION="3.2.2"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
