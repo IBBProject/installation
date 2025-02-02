@@ -33,6 +33,10 @@ while [[ $# -gt 0 ]]; do
       INSTALL_CNS_KUBE=false
       shift
       ;;
+    --install-cns-haystack)
+      INSTALL_CNS_HAYSTACK=true
+      shift
+      ;;
     --no-dapr)
       INSTALL_DAPR=false
       shift
@@ -108,6 +112,7 @@ install_dapr
 
 install_cns_dapr
 install_cns_kube
+install_cns_haystack
 
 
 # install_argocd
