@@ -1,5 +1,5 @@
 
-INSTALL_SCRIPT_VERSION="3.3.0"
+INSTALL_SCRIPT_VERSION="3.4.0"
 
 # Must be a k3s-io tagged release: https://github.com/k3s-io/k3s/releases
 K3S_VERSION="v1.25.16+k3s4"
@@ -52,6 +52,7 @@ INSTALL_ARGOCD=false
 INSTALL_CNS_DAPR=true
 INSTALL_CNS_KUBE=true
 INSTALL_CNS_HAYSTACK=false
+INSTALL_COCKPIT=false
 INSTALL_DAPR=true
 INSTALL_HELM=true
 INSTALL_K3S=true

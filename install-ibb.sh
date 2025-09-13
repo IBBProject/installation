@@ -65,6 +65,7 @@ INSTALL_ARGOCD=false
 INSTALL_CNS_DAPR=true
 INSTALL_CNS_KUBE=true
 INSTALL_CNS_HAYSTACK=false
+INSTALL_COCKPIT=false
 INSTALL_DAPR=true
 INSTALL_HELM=true
 INSTALL_K3S=true
@@ -280,6 +281,27 @@ install_cns_kube () {
   helm upgrade --install ibb-cns-kube ibb/ibb-cns-kube --namespace $IBB_NS --wait | tee -a $IBB_LOG_FILE
 
   log_info "CNS Kube Installed"
+}
+
+install_cockpit() {
+  if [ "$INSTALL_COCKPIT" != true ]; then 
+    log_info "Install cockpit flag is not true. Skipping..."
+    return 0
+  fi
+
+  log_info "Adding Cockpit apt repository"
+  . /etc/os-release
+  echo "deb http://deb.debian.org/debian ${VERSION_CODENAME}-backports main" > \
+    /etc/apt/sources.list.d/backports.list
+  apt update
+  log_info "Installing Cockpit"
+  apt install -yt ${VERSION_CODENAME}-backports cockpit
+  log_info "Installed Cockpit"
+  echo << EOF > /etc/cockpit/cockpit.conf
+[WebService]
+Origins = https://*.staging.padi.io
+EOF
+  systemctl restart cockpit.socket
 }
 
 install_dapr() {
@@ -882,6 +904,14 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --install-cns-haystack)
+      INSTALL_CNS_HAYSTACK=true
+      shift
+      ;;
+    --install-cockpit)
+      INSTALL_COCKPIT=true
+      shift
+      ;;
     --install-code)
       PADI_INSTALL_CODE=$2
       shift
@@ -907,10 +937,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-cns-kube)
       INSTALL_CNS_KUBE=false
-      shift
-      ;;
-    --install-cns-haystack)
-      INSTALL_CNS_HAYSTACK=true
       shift
       ;;
     --no-dapr)
@@ -980,6 +1006,7 @@ check_required_binaries
 do_k3s
 do_helm
 install_k9s
+# install_cockpit
 
 # Link must be done before Injector, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi

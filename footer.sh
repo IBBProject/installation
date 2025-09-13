@@ -6,6 +6,14 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --install-cns-haystack)
+      INSTALL_CNS_HAYSTACK=true
+      shift
+      ;;
+    --install-cockpit)
+      INSTALL_COCKPIT=true
+      shift
+      ;;
     --install-code)
       PADI_INSTALL_CODE=$2
       shift
@@ -31,10 +39,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-cns-kube)
       INSTALL_CNS_KUBE=false
-      shift
-      ;;
-    --install-cns-haystack)
-      INSTALL_CNS_HAYSTACK=true
       shift
       ;;
     --no-dapr)
@@ -104,6 +108,7 @@ check_required_binaries
 do_k3s
 do_helm
 install_k9s
+# install_cockpit
 
 # Link must be done before Injector, CNS-Dapr, or CNS-Kube can be installed
 link_ibb_to_padi
